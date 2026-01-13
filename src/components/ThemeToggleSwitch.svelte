@@ -7,6 +7,8 @@
   function toggleTheme() {
     isDarkTheme = !isDarkTheme;
   }
+
+  $: knobX = isDarkTheme ? 24 : 0;
 </script>
 
 <button
@@ -19,9 +21,8 @@
   on:click={toggleTheme}
 >
   <span
-    class={`absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-white shadow transition-transform ${
-      isDarkTheme ? "translate-x-6" : "translate-x-0"
-    }`}
+    style={`transform: translateX(${knobX}px); transition: transform var(--transition-duration);`}
+    class="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-white shadow"
   >
     {#if isDarkTheme}
       <span class="flex h-full w-full items-center justify-center">

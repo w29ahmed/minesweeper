@@ -30,10 +30,8 @@
 </script>
 
 <main
-  class={`min-h-screen flex flex-col ${
-    isDarkTheme ? "bg-slate-900 text-slate-100" : "bg-amber-50 text-slate-900"
-  }`}
+  class="min-h-screen flex flex-col bg-amber-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100"
 >
   <NavBar bind:isDarkTheme {timeLabel} {bombsLeft} />
-  <div class="flex-1"></div>
+  <div class="flex-1 bg-amber-100 dark:bg-slate-950"></div>
 </main>
