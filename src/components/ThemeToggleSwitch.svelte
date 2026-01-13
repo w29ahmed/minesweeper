@@ -8,6 +8,7 @@
     isDarkTheme = !isDarkTheme;
   }
 
+  // Drive knob motion with a real transform so it animates smoothly.
   $: knobX = isDarkTheme ? 24 : 0;
 </script>
 

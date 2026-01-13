@@ -10,6 +10,7 @@
 
   const dispatch = createEventDispatcher();
 
+  // Hook for future game logic to reset the board/timer.
   function handleRestart() {
     dispatch("restart");
   }

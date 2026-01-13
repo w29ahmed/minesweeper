@@ -8,8 +8,10 @@
 
   let timerId: ReturnType<typeof setInterval> | null = null;
 
+  // Keep a human-readable timer label for the navbar.
   $: timeLabel = new Date(elapsedSeconds * 1000).toISOString().slice(14, 19);
 
+  // Persist theme choice and toggle the root class for Tailwind dark variants.
   $: {
     localStorage.setItem("theme", isDarkTheme ? "dark" : "light");
     document.documentElement.classList.toggle("dark", isDarkTheme);
@@ -17,6 +19,7 @@
 
   onMount(() => {
     document.documentElement.classList.toggle("dark", isDarkTheme);
+    // Basic interval timer for the MVP; real game state will drive this later.
     timerId = setInterval(() => {
       elapsedSeconds += 1;
     }, 1000);
