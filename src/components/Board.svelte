@@ -72,7 +72,7 @@
       {#each row as cell (cell.row + "-" + cell.col)}
         <button
           type="button"
-          class={`relative flex h-full w-full items-center justify-center text-sm font-semibold border border-amber-200 dark:border-slate-700 ${
+          class={`relative flex h-full w-full items-center justify-center text-sm font-semibold border border-amber-200 dark:border-slate-500 ${
             cell.revealed
               ? "bg-amber-50 dark:bg-slate-700"
               : "bg-amber-100 hover:bg-amber-200 dark:bg-slate-600 dark:hover:bg-slate-500"

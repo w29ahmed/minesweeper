@@ -10,7 +10,7 @@
     type Board as GameBoard,
   } from "./lib/game";
 
-  let isDarkTheme: boolean = localStorage.getItem("theme") === "dark";
+  let isDarkTheme: boolean = (localStorage.getItem("theme") ?? "dark") === "dark";
   let elapsedSeconds = 0;
   // Tunable constants for MVP; later we can swap based on difficulty.
   const BOARD_SIZE = 10;
@@ -72,7 +72,15 @@
   function handleReveal(row: number, col: number) {
     if (!hasStarted) {
       // Ensure the first revealed tile is never a bomb.
-      const generated = generateBoard(BOARD_SIZE, BOMB_COUNT, { row, col });
+      let generated = generateBoard(BOARD_SIZE, BOMB_COUNT, { row, col });
+      let attempts = 0;
+
+      // Ensure the first reveal is an empty cell (no adjacent bombs).
+      while (generated[row][col].adjacent !== 0 && attempts < 200) {
+        generated = generateBoard(BOARD_SIZE, BOMB_COUNT, { row, col });
+        attempts += 1;
+      }
+
       applyExistingFlags(generated);
       board = generated;
       hasStarted = true;
@@ -102,7 +110,7 @@
     <Board
       {board}
       size={BOARD_SIZE}
-      longPressMs={500}
+      longPressMs={350}
       onReveal={handleReveal}
       onToggleFlag={handleToggleFlag}
     />
