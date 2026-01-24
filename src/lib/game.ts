@@ -5,6 +5,7 @@ export type Cell = {
   adjacent: number;
   revealed: boolean;
   flagged: boolean;
+  revealStep: number | null;
 };
 
 export type Board = Cell[][];
@@ -34,6 +35,8 @@ export function createEmptyBoard(size: number): Board {
       adjacent: 0,
       revealed: false,
       flagged: false,
+      // Used to stagger reveal animations in a flood-fill.
+      revealStep: null,
     }))
   );
 }
@@ -114,11 +117,18 @@ export function revealCell(board: Board, row: number, col: number) {
 
   if (start.isBomb) {
     start.revealed = true;
+    start.revealStep = 0;
+    return next;
+  }
+
+  if (start.adjacent > 0) {
+    start.revealed = true;
+    start.revealStep = 0;
     return next;
   }
 
   // Flood-fill to reveal empty neighbors.
-  const queue: Position[] = [{ row, col }];
+  const queue: Array<Position & { dist: number }> = [{ row, col, dist: 0 }];
 
   while (queue.length) {
     const current = queue.shift();
@@ -131,6 +141,7 @@ export function revealCell(board: Board, row: number, col: number) {
     }
 
     cell.revealed = true;
+    cell.revealStep = current.dist;
 
     if (cell.adjacent !== 0) {
       continue;
@@ -142,7 +153,7 @@ export function revealCell(board: Board, row: number, col: number) {
       if (inBounds(size, nRow, nCol)) {
         const neighbor = next[nRow][nCol];
         if (!neighbor.revealed && !neighbor.flagged && !neighbor.isBomb) {
-          queue.push({ row: nRow, col: nCol });
+          queue.push({ row: nRow, col: nCol, dist: current.dist + 1 });
         }
       }
     }

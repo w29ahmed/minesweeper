@@ -11,6 +11,7 @@
 
   let pressTimer: ReturnType<typeof setTimeout> | null = null;
   let longPressFired = false;
+  const REVEAL_DELAY_MS = 35;
 
   const numberColors: Record<number, string> = {
     1: "text-blue-500",
@@ -72,28 +73,105 @@
       {#each row as cell (cell.row + "-" + cell.col)}
         <button
           type="button"
-          class={`relative flex h-full w-full items-center justify-center text-sm font-semibold border border-amber-200 dark:border-slate-500 ${
-            cell.revealed
-              ? "bg-amber-50 dark:bg-slate-700"
-              : "bg-amber-100 hover:bg-amber-200 dark:bg-slate-600 dark:hover:bg-slate-500"
-          }`}
+          style={`--reveal-delay: ${(cell.revealStep ?? 0) * REVEAL_DELAY_MS}ms;`}
+          class="cell group relative flex h-full w-full items-center justify-center text-sm font-semibold border border-amber-200 bg-amber-50 dark:border-slate-500 dark:bg-slate-700"
           on:pointerdown={() => handlePointerDown(cell)}
           on:pointerup={() => handlePointerUp(cell)}
           on:pointerleave={handlePointerCancel}
           on:pointercancel={handlePointerCancel}
           on:contextmenu|preventDefault
         >
-          {#if cell.revealed}
+          <span
+            class={`cell-content ${cell.revealed ? "cell-content--shown" : ""}`}
+          >
             {#if cell.isBomb}
               <Fa icon={faBomb} class="text-slate-700 dark:text-rose-300" />
             {:else if cell.adjacent > 0}
               <span class={numberClass(cell.adjacent)}>{cell.adjacent}</span>
             {/if}
-          {:else if cell.flagged}
+          </span>
+
+          <span
+            class={`cell-flag ${cell.flagged && !cell.revealed ? "cell-flag--shown" : ""}`}
+          >
             <Fa icon={faFlag} class="text-rose-500" />
-          {/if}
+          </span>
+
+          <span
+            class={`cell-cover ${cell.revealed ? "cell-cover--hidden" : ""}`}
+          />
         </button>
       {/each}
     {/each}
   </div>
 </div>
+
+<style>
+  .cell {
+    --reveal-delay: 0ms;
+  }
+
+  .cell-cover {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    background-color: rgb(254 243 199 / 1);
+    transform: scale(1);
+    transform-origin: center;
+    transition:
+      transform var(--transition-duration),
+      background-color var(--transition-duration);
+    transition-delay: var(--reveal-delay);
+  }
+
+  :global(.dark) .cell-cover {
+    background-color: rgb(71 85 105 / 1);
+  }
+
+  .cell:hover .cell-cover {
+    background-color: rgb(253 230 138 / 1);
+  }
+
+  :global(.dark) .cell:hover .cell-cover {
+    background-color: rgb(100 116 139 / 1);
+  }
+
+  .cell-cover--hidden {
+    transform: scale(0);
+  }
+
+  .cell-content {
+    position: relative;
+    z-index: 1;
+    opacity: 0;
+    transform: scale(0.92);
+    transition:
+      opacity var(--transition-duration),
+      transform var(--transition-duration);
+    transition-delay: var(--reveal-delay);
+  }
+
+  .cell-content--shown {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .cell-flag {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: scale(0.6);
+    transition:
+      transform var(--transition-duration),
+      opacity var(--transition-duration);
+  }
+
+  .cell-flag--shown {
+    opacity: 1;
+    transform: scale(1);
+  }
+</style>
