@@ -11,7 +11,8 @@
   } from "./lib/game";
   import { loadGameState, saveGameState } from "./stores/gameStore";
 
-  let isDarkTheme: boolean = (localStorage.getItem("theme") ?? "dark") === "dark";
+  let isDarkTheme: boolean =
+    (localStorage.getItem("theme") ?? "dark") === "dark";
   let elapsedSeconds = 0;
   // Tunable constants for MVP; later we can swap based on difficulty.
   const BOARD_SIZE = 10;
@@ -105,6 +106,10 @@
   }
 
   function handleToggleFlag(row: number, col: number) {
+    // Don't allow placing more flags than bombs.
+    if (!board[row][col].flagged && flagsPlaced >= BOMB_COUNT) {
+      return;
+    }
     const result = toggleFlag(board, row, col);
     board = result.board;
     flagsPlaced = Math.max(0, flagsPlaced + result.delta);
@@ -113,7 +118,11 @@
   onMount(() => {
     document.documentElement.classList.toggle("dark", isDarkTheme);
     const saved = loadGameState();
-    if (saved && saved.boardSize === BOARD_SIZE && saved.bombCount === BOMB_COUNT) {
+    if (
+      saved &&
+      saved.boardSize === BOARD_SIZE &&
+      saved.bombCount === BOMB_COUNT
+    ) {
       board = saved.board;
       flagsPlaced = saved.flagsPlaced;
       elapsedSeconds = saved.elapsedSeconds;
