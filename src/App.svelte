@@ -90,7 +90,7 @@
       let attempts = 0;
 
       // Ensure the first reveal is an empty cell (no adjacent bombs).
-      while (generated[row][col].adjacent !== 0 && attempts < 200) {
+      while (generated[row][col].adjacentBombCount !== 0 && attempts < 200) {
         generated = generateBoard(BOARD_SIZE, BOMB_COUNT, { row, col });
         attempts += 1;
       }

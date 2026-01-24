@@ -2,9 +2,10 @@ export type Cell = {
   row: number;
   col: number;
   isBomb: boolean;
-  adjacent: number;
+  adjacentBombCount: number;
   revealed: boolean;
   flagged: boolean;
+  // Used to stagger reveal animations in a flood-fill
   revealStep: number | null;
 };
 
@@ -32,7 +33,7 @@ export function createEmptyBoard(size: number): Board {
       row,
       col,
       isBomb: false,
-      adjacent: 0,
+      adjacentBombCount: 0,
       revealed: false,
       flagged: false,
       // Used to stagger reveal animations in a flood-fill.
@@ -87,7 +88,7 @@ export function generateBoard(size: number, bombs: number, safe: Position): Boar
           count += 1;
         }
       }
-      board[row][col].adjacent = count;
+      board[row][col].adjacentBombCount = count;
     }
   }
 
@@ -121,7 +122,7 @@ export function revealCell(board: Board, row: number, col: number) {
     return next;
   }
 
-  if (start.adjacent > 0) {
+  if (start.adjacentBombCount > 0) {
     start.revealed = true;
     start.revealStep = 0;
     return next;
@@ -143,7 +144,7 @@ export function revealCell(board: Board, row: number, col: number) {
     cell.revealed = true;
     cell.revealStep = current.dist;
 
-    if (cell.adjacent !== 0) {
+    if (cell.adjacentBombCount !== 0) {
       continue;
     }
 

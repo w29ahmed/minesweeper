@@ -86,8 +86,8 @@
           >
             {#if cell.isBomb}
               <Fa icon={faBomb} class="text-slate-700 dark:text-rose-300" />
-            {:else if cell.adjacent > 0}
-              <span class={numberClass(cell.adjacent)}>{cell.adjacent}</span>
+            {:else if cell.adjacentBombCount > 0}
+              <span class={numberClass(cell.adjacentBombCount)}>{cell.adjacentBombCount}</span>
             {/if}
           </span>
 
