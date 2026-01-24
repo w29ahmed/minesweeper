@@ -12,6 +12,7 @@
   let pressTimer: ReturnType<typeof setTimeout> | null = null;
   let longPressFired = false;
   const REVEAL_DELAY_MS = 35;
+  let pressedCellKey: string | null = null;
 
   const numberColors: Record<number, string> = {
     1: "text-blue-500",
@@ -31,6 +32,7 @@
     }
 
     longPressFired = false;
+    pressedCellKey = `${cell.row}-${cell.col}`;
     pressTimer = setTimeout(() => {
       longPressFired = true;
       onToggleFlag(cell.row, cell.col);
@@ -42,6 +44,8 @@
       clearTimeout(pressTimer);
       pressTimer = null;
     }
+
+    pressedCellKey = null;
 
     if (longPressFired) {
       return;
@@ -57,6 +61,7 @@
       clearTimeout(pressTimer);
       pressTimer = null;
     }
+    pressedCellKey = null;
   }
 
   function numberClass(value: number) {
@@ -74,7 +79,11 @@
         <button
           type="button"
           style={`--reveal-delay: ${(cell.revealStep ?? 0) * REVEAL_DELAY_MS}ms;`}
-          class="cell group relative flex h-full w-full items-center justify-center text-sm font-semibold border border-amber-200 bg-amber-50 dark:border-slate-500 dark:bg-slate-700"
+          class={`cell group relative flex h-full w-full items-center justify-center text-sm font-semibold border border-amber-200 bg-amber-50 dark:border-slate-500 dark:bg-slate-700 ${
+            pressedCellKey === `${cell.row}-${cell.col}` && !cell.revealed
+              ? "cell-hold"
+              : ""
+          }`}
           on:pointerdown={() => handlePointerDown(cell)}
           on:pointerup={() => handlePointerUp(cell)}
           on:pointerleave={handlePointerCancel}
@@ -87,7 +96,9 @@
             {#if cell.isBomb}
               <Fa icon={faBomb} class="text-slate-700 dark:text-rose-300" />
             {:else if cell.adjacentBombCount > 0}
-              <span class={numberClass(cell.adjacentBombCount)}>{cell.adjacentBombCount}</span>
+              <span class={numberClass(cell.adjacentBombCount)}
+                >{cell.adjacentBombCount}</span
+              >
             {/if}
           </span>
 
@@ -109,6 +120,14 @@
 <style>
   .cell {
     --reveal-delay: 0ms;
+  }
+
+  .cell-hold .cell-cover {
+    filter: brightness(0.9);
+  }
+
+  :global(.dark) .cell-hold .cell-cover {
+    filter: brightness(0.7);
   }
 
   .cell-cover {
