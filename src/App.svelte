@@ -22,6 +22,11 @@
   let hasStarted = false;
   let board: GameBoard = createEmptyBoard(BOARD_SIZE);
   let hasRestoredState = false;
+  // Tracks temporary bomb reveals so we can animate without permanently revealing.
+  // A key is added on bomb click and removed after the flash duration.
+  let bombFlashKeys: string[] = [];
+  // Bumps to retrigger the +10 animation in the navbar.
+  let penaltyAnimationKey = 0;
 
   let timerId: ReturnType<typeof setInterval> | null = null;
 
@@ -71,6 +76,8 @@
     hasStarted = false;
     flagsPlaced = 0;
     board = createEmptyBoard(BOARD_SIZE);
+    bombFlashKeys = [];
+    penaltyTick = 0;
   }
 
   // Preserve any flags placed before the first reveal.
@@ -100,6 +107,20 @@
       board = generated;
       hasStarted = true;
       startTimer();
+    }
+
+    const cell = board[row][col];
+    if (cell.isBomb) {
+      elapsedSeconds += 10;
+      penaltyAnimationKey += 1;
+      const key = `${row}-${col}`;
+      if (!bombFlashKeys.includes(key)) {
+        bombFlashKeys = [...bombFlashKeys, key];
+      }
+      setTimeout(() => {
+        bombFlashKeys = bombFlashKeys.filter((item) => item !== key);
+      }, 1000);
+      return;
     }
 
     board = revealCell(board, row, col);
@@ -142,12 +163,19 @@
 <main
   class="min-h-screen flex flex-col bg-amber-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100"
 >
-  <NavBar bind:isDarkTheme {timeLabel} {bombsLeft} on:restart={resetGame} />
+  <NavBar
+    bind:isDarkTheme
+    {timeLabel}
+    {bombsLeft}
+    {penaltyAnimationKey}
+    on:restart={resetGame}
+  />
   <section class="flex flex-1 min-h-0 bg-amber-100 dark:bg-slate-950">
     <Board
       {board}
       size={BOARD_SIZE}
       longPressMs={350}
+      {bombFlashKeys}
       onReveal={handleReveal}
       onToggleFlag={handleToggleFlag}
     />

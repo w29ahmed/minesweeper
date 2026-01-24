@@ -7,6 +7,8 @@
   export let size: number;
   export let onReveal: (row: number, col: number) => void;
   export let onToggleFlag: (row: number, col: number) => void;
+  // Cell keys that should briefly show a bomb (penalty feedback).
+  export let bombFlashKeys: string[] = [];
   export let longPressMs = 500;
 
   let pressTimer: ReturnType<typeof setTimeout> | null = null;
@@ -67,6 +69,10 @@
   function numberClass(value: number) {
     return numberColors[value] ?? "text-slate-600";
   }
+
+  function cellKey(cell: Cell) {
+    return `${cell.row}-${cell.col}`;
+  }
 </script>
 
 <div class="flex-1 min-h-0 w-full">
@@ -76,6 +82,8 @@
   >
     {#each board as row}
       {#each row as cell (cell.row + "-" + cell.col)}
+        {@const key = cellKey(cell)}
+        {@const isBombFlash = bombFlashKeys.includes(key)}
         <button
           type="button"
           style={`--reveal-delay: ${(cell.revealStep ?? 0) * REVEAL_DELAY_MS}ms;`}
@@ -91,10 +99,14 @@
           on:contextmenu|preventDefault
         >
           <span
-            class={`cell-content ${cell.revealed ? "cell-content--shown" : ""}`}
+            class={`cell-content ${
+              cell.revealed || isBombFlash ? "cell-content--shown" : ""
+            }`}
           >
             {#if cell.isBomb}
-              <Fa icon={faBomb} class="text-slate-700 dark:text-rose-300" />
+              <span class={isBombFlash ? "bomb-shake" : ""}>
+                <Fa icon={faBomb} class="text-slate-700 dark:text-rose-300" />
+              </span>
             {:else if cell.adjacentBombCount > 0}
               <span class={numberClass(cell.adjacentBombCount)}
                 >{cell.adjacentBombCount}</span
@@ -109,7 +121,7 @@
           </span>
 
           <span
-            class={`cell-cover ${cell.revealed ? "cell-cover--hidden" : ""}`}
+            class={`cell-cover ${cell.revealed || isBombFlash ? "cell-cover--hidden" : ""}`}
           />
         </button>
       {/each}
@@ -192,5 +204,28 @@
   .cell-flag--shown {
     opacity: 1;
     transform: scale(1);
+  }
+
+  .bomb-shake {
+    display: inline-block;
+    animation: bomb-shake 0.6s ease-in-out;
+  }
+
+  @keyframes bomb-shake {
+    0% {
+      transform: translateX(0);
+    }
+    25% {
+      transform: translateX(-4px) rotate(-3deg);
+    }
+    50% {
+      transform: translateX(4px) rotate(3deg);
+    }
+    75% {
+      transform: translateX(-3px) rotate(-2deg);
+    }
+    100% {
+      transform: translateX(0);
+    }
   }
 </style>

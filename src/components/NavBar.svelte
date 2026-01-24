@@ -7,6 +7,7 @@
   export let isDarkTheme: boolean;
   export let timeLabel: string = "00:00";
   export let bombsLeft: number = 10;
+  export let penaltyAnimationKey: number = 0;
 
   const dispatch = createEventDispatcher();
 
@@ -34,6 +35,12 @@
     <Fa icon={faClock} class="text-slate-500 dark:text-slate-300" />
     <span class="text-slate-500 dark:text-slate-300">Time</span>
     <span class="font-mono text-slate-800 dark:text-slate-100">{timeLabel}</span>
+    {#if penaltyAnimationKey}
+      {#key penaltyAnimationKey}
+        <!-- Forces the +10 to re-mount so the animation replays each penalty. -->
+        <span class="time-penalty">+10</span>
+      {/key}
+    {/if}
   </div>
 
   <div class="flex items-center justify-end gap-4">
@@ -44,3 +51,25 @@
     <ThemeToggleSwitch bind:isDarkTheme />
   </div>
 </nav>
+
+<style>
+  .time-penalty {
+    color: #ef4444;
+    font-weight: 700;
+    animation: penalty-pop 1s ease-out forwards;
+  }
+
+  @keyframes penalty-pop {
+    0% {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    20% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+  }
+</style>
