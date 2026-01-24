@@ -9,6 +9,7 @@
     toggleFlag,
     type Board as GameBoard,
   } from "./lib/game";
+  import { loadGameState, saveGameState } from "./stores/gameStore";
 
   let isDarkTheme: boolean = (localStorage.getItem("theme") ?? "dark") === "dark";
   let elapsedSeconds = 0;
@@ -19,6 +20,7 @@
   let flagsPlaced = 0;
   let hasStarted = false;
   let board: GameBoard = createEmptyBoard(BOARD_SIZE);
+  let hasRestoredState = false;
 
   let timerId: ReturnType<typeof setInterval> | null = null;
 
@@ -30,6 +32,18 @@
   $: {
     localStorage.setItem("theme", isDarkTheme ? "dark" : "light");
     document.documentElement.classList.toggle("dark", isDarkTheme);
+  }
+
+  // Persist game state so users can resume where they left off.
+  $: if (hasRestoredState) {
+    saveGameState({
+      board,
+      flagsPlaced,
+      elapsedSeconds,
+      hasStarted,
+      boardSize: BOARD_SIZE,
+      bombCount: BOMB_COUNT,
+    });
   }
 
   // Timer starts on the first reveal to mimic classic Minesweeper.
@@ -98,6 +112,20 @@
 
   onMount(() => {
     document.documentElement.classList.toggle("dark", isDarkTheme);
+    const saved = loadGameState();
+    if (saved && saved.boardSize === BOARD_SIZE && saved.bombCount === BOMB_COUNT) {
+      board = saved.board;
+      flagsPlaced = saved.flagsPlaced;
+      elapsedSeconds = saved.elapsedSeconds;
+      hasStarted = saved.hasStarted;
+    }
+    hasRestoredState = true;
+
+    // Resume the timer if a game was already in progress.
+    if (hasStarted) {
+      startTimer();
+    }
+
     return resetTimer;
   });
 </script>
