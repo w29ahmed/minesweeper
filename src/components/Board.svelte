@@ -4,7 +4,6 @@
   import type { Board, Cell } from "../lib/game";
 
   export let board: Board;
-  export let size: number;
   export let onReveal: (row: number, col: number) => void;
   export let onToggleFlag: (row: number, col: number) => void;
   // Cell keys that should briefly show a bomb (penalty feedback).
@@ -80,9 +79,9 @@
 <div class="flex-1 min-h-0 w-full">
   <div
     class="grid h-full w-full bg-amber-200/60 shadow-inner dark:bg-slate-800/70"
-    style={`grid-template-columns: repeat(${size}, minmax(0, 1fr)); grid-template-rows: repeat(${size}, minmax(0, 1fr));`}
+    style={`grid-template-columns: repeat(${board.cols}, minmax(0, 1fr)); grid-template-rows: repeat(${board.rows}, minmax(0, 1fr));`}
   >
-    {#each board as row}
+    {#each board.cells as row}
       {#each row as cell (cell.row + "-" + cell.col)}
         {@const key = cellKey(cell)}
         {@const isBombFlash = bombFlashKeys.includes(key)}

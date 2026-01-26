@@ -2,35 +2,24 @@
   import { onMount } from "svelte";
   import NavBar from "./components/NavBar.svelte";
   import Board from "./components/Board.svelte";
-  import {
-    createEmptyBoard,
-    generateBoard,
-    revealCell,
-    toggleFlag,
-    type Board as GameBoard,
-    type Position,
-  } from "./lib/game";
-  import {
-    buildEdgeCandidates,
-    keyFor,
-    selectHintCandidate,
-    updateEdgeCandidateForCell,
-    updateEdgeCandidatesFromReveal,
-    type EdgeCandidates,
-  } from "./lib/hint";
+  import { GameManager, type Board as GameBoard, type GameState } from "./lib/game";
   import { loadGameState, saveGameState } from "./stores/gameStore";
 
-  let isDarkTheme: boolean =
-    (localStorage.getItem("theme") ?? "dark") === "dark";
+  // Theme toggle state; defaults to dark if nothing stored yet.
+  let isDarkTheme: boolean = (localStorage.getItem("theme") ?? "dark") === "dark";
+  // Elapsed timer value in seconds.
   let elapsedSeconds = 0;
   // Tunable constants for MVP; later we can swap based on difficulty.
-  const BOARD_SIZE = 10;
+  const BOARD_ROWS = 10;
+  const BOARD_COLS = 10;
   const BOMB_COUNT = 25;
 
-  let flagsPlaced = 0;
-  let hasStarted = false;
-  let board: GameBoard = createEmptyBoard(BOARD_SIZE);
-  let hasRestoredState = false;
+  const game = new GameManager(BOARD_ROWS, BOARD_COLS, BOMB_COUNT);
+
+  let board: GameBoard = game.getBoard();
+  let flagsPlaced = game.getFlagsPlaced();
+  let hasStarted = game.getHasStarted();
+  let hasRestoredState = false; // Prevents saving before restore completes.
   // Tracks temporary bomb reveals so we can animate without permanently revealing.
   // A key is added on bomb click and removed after the flash duration.
   let bombFlashKeys: string[] = [];
@@ -38,8 +27,6 @@
   let hintFlashKeys: string[] = [];
   // Bumps to retrigger the +10 animation in the navbar.
   let penaltyAnimationKey = 0;
-  // Keeps a quick lookup of "edge" candidates for hints.
-  let edgeCandidates: EdgeCandidates = new Set<string>();
 
   let timerId: ReturnType<typeof setInterval> | null = null;
 
@@ -56,13 +43,15 @@
   // Persist game state so users can resume where they left off.
   $: if (hasRestoredState) {
     saveGameState({
-      board,
-      flagsPlaced,
+      game: game.getState(),
       elapsedSeconds,
-      hasStarted,
-      boardSize: BOARD_SIZE,
-      bombCount: BOMB_COUNT,
     });
+  }
+
+  function syncFromGame() {
+    board = game.getBoard();
+    flagsPlaced = game.getFlagsPlaced();
+    hasStarted = game.getHasStarted();
   }
 
   // Timer starts on the first reveal to mimic classic Minesweeper.
@@ -86,12 +75,10 @@
   // Full reset used by the navbar restart action.
   function resetGame() {
     resetTimer();
-    hasStarted = false;
-    flagsPlaced = 0;
-    board = createEmptyBoard(BOARD_SIZE);
+    game.reset();
+    syncFromGame();
     bombFlashKeys = [];
     hintFlashKeys = [];
-    edgeCandidates = new Set<string>();
     penaltyAnimationKey = 0;
   }
 
@@ -100,37 +87,14 @@
     penaltyAnimationKey += 1;
   }
 
-  // Preserve any flags placed before the first reveal.
-  function applyExistingFlags(nextBoard: GameBoard) {
-    for (const row of board) {
-      for (const cell of row) {
-        if (cell.flagged) {
-          nextBoard[cell.row][cell.col].flagged = true;
-        }
-      }
-    }
-  }
-
   function handleReveal(row: number, col: number) {
-    if (!hasStarted) {
-      // Ensure the first revealed tile is never a bomb.
-      let generated = generateBoard(BOARD_SIZE, BOMB_COUNT, { row, col });
-      let attempts = 0;
+    const result = game.reveal(row, col);
 
-      // Ensure the first reveal is an empty cell (no adjacent bombs).
-      while (generated[row][col].adjacentBombCount !== 0 && attempts < 200) {
-        generated = generateBoard(BOARD_SIZE, BOMB_COUNT, { row, col });
-        attempts += 1;
-      }
-
-      applyExistingFlags(generated);
-      board = generated;
-      hasStarted = true;
+    if (!hasStarted && game.getHasStarted()) {
       startTimer();
     }
 
-    const cell = board[row][col];
-    if (cell.isBomb) {
+    if (result.outcome === "bomb") {
       applyPenalty();
       const key = `${row}-${col}`;
       if (!bombFlashKeys.includes(key)) {
@@ -142,69 +106,38 @@
       return;
     }
 
-    const result = revealCell(board, row, col);
-    board = result.board;
-    edgeCandidates = updateEdgeCandidatesFromReveal(
-      edgeCandidates,
-      board,
-      BOARD_SIZE,
-      result.revealed
-    );
+    if (result.outcome === "revealed") {
+      syncFromGame();
+    }
   }
 
   function handleToggleFlag(row: number, col: number) {
-    // Don't allow placing more flags than bombs.
-    if (!board[row][col].flagged && flagsPlaced >= BOMB_COUNT) {
+    const result = game.toggleFlag(row, col);
+    if (result.blocked) {
       return;
     }
-    const result = toggleFlag(board, row, col);
-    board = result.board;
-    flagsPlaced = Math.max(0, flagsPlaced + result.delta);
-    edgeCandidates = updateEdgeCandidateForCell(
-      edgeCandidates,
-      board,
-      BOARD_SIZE,
-      row,
-      col
-    );
+    syncFromGame();
   }
 
   function handleHint() {
-    if (!hasStarted || edgeCandidates.size === 0) {
+    if (!game.getHasStarted()) {
       return;
     }
 
-    const candidate = selectHintCandidate(edgeCandidates, board);
+    const candidate = game.getHintCandidate();
     if (!candidate) {
       return;
     }
-    const { row, col } = candidate;
-    const choice = keyFor(row, col);
 
+    const choice = `${candidate.row}-${candidate.col}`;
     applyPenalty();
     hintFlashKeys = [...hintFlashKeys, choice];
 
     setTimeout(() => {
-      const cell = board[row][col];
-      if (cell.revealed || cell.flagged) {
-        hintFlashKeys = hintFlashKeys.filter((item) => item !== choice);
-        return;
+      const outcome = game.applyHint(candidate.row, candidate.col);
+      if (outcome.action !== "none") {
+        syncFromGame();
       }
-
-      if (cell.isBomb) {
-        handleToggleFlag(row, col);
-        hintFlashKeys = hintFlashKeys.filter((item) => item !== choice);
-        return;
-      }
-
-      const result = revealCell(board, row, col);
-      board = result.board;
-      edgeCandidates = updateEdgeCandidatesFromReveal(
-        edgeCandidates,
-        board,
-        BOARD_SIZE,
-        result.revealed
-      );
       hintFlashKeys = hintFlashKeys.filter((item) => item !== choice);
     }, 1000);
   }
@@ -212,21 +145,24 @@
   onMount(() => {
     document.documentElement.classList.toggle("dark", isDarkTheme);
     const saved = loadGameState();
-    if (
-      saved &&
-      saved.boardSize === BOARD_SIZE &&
-      saved.bombCount === BOMB_COUNT
-    ) {
-      board = saved.board;
-      flagsPlaced = saved.flagsPlaced;
-      elapsedSeconds = saved.elapsedSeconds;
-      hasStarted = saved.hasStarted;
-      edgeCandidates = buildEdgeCandidates(board, BOARD_SIZE);
+
+    if (saved) {
+      const gameState = saved.game;
+      if (
+        gameState.boardRows === BOARD_ROWS &&
+        gameState.boardCols === BOARD_COLS &&
+        gameState.bombCount === BOMB_COUNT
+      ) {
+        game.setState(gameState);
+        syncFromGame();
+        elapsedSeconds = saved.elapsedSeconds;
+      }
     }
+
     hasRestoredState = true;
 
     // Resume the timer if a game was already in progress.
-    if (hasStarted) {
+    if (game.getHasStarted()) {
       startTimer();
     }
 
@@ -248,7 +184,6 @@
   <section class="flex flex-1 min-h-0 bg-amber-100 dark:bg-slate-950">
     <Board
       {board}
-      size={BOARD_SIZE}
       longPressMs={350}
       {bombFlashKeys}
       {hintFlashKeys}

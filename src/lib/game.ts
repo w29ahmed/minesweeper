@@ -1,7 +1,8 @@
 /**
- * Core Minesweeper game logic and data structures.
- * Functions here are UI-agnostic and operate on plain board state.
+ * GameManager owns all board state and core Minesweeper rules.
+ * It provides a clean API for the UI and handles hint coordination internally.
  */
+import { HintManager } from "./hint";
 
 export type Cell = {
   row: number;
@@ -14,11 +15,24 @@ export type Cell = {
   revealStep: number | null;
 };
 
-export type Board = Cell[][];
+export type Board = {
+  rows: number;
+  cols: number;
+  cells: Cell[][];
+};
 
 export type Position = {
   row: number;
   col: number;
+};
+
+export type GameState = {
+  board: Board;
+  flagsPlaced: number;
+  hasStarted: boolean;
+  boardRows: number;
+  boardCols: number;
+  bombCount: number;
 };
 
 export const DIRECTIONS = [
@@ -33,163 +47,359 @@ export const DIRECTIONS = [
 ];
 
 /**
- * Create a size x size board with no bombs and default cell state.
- */
-export function createEmptyBoard(size: number): Board {
-  return Array.from({ length: size }, (_, row) =>
-    Array.from({ length: size }, (_, col) => ({
-      row,
-      col,
-      isBomb: false,
-      adjacentBombCount: 0,
-      revealed: false,
-      flagged: false,
-      // Used to stagger reveal animations in a flood-fill.
-      revealStep: null,
-    }))
-  );
-}
-
-/**
- * Deep-clone a board so mutations don't affect the original.
- */
-function cloneBoard(board: Board): Board {
-  return board.map((row) => row.map((cell) => ({ ...cell })));
-}
-
-/**
  * Guard for row/col bounds checks.
  */
-/**
- * Guard for row/col bounds checks.
- */
-export function inBounds(size: number, row: number, col: number) {
-  return row >= 0 && row < size && col >= 0 && col < size;
+export function inBounds(rows: number, cols: number, row: number, col: number) {
+  return row >= 0 && row < rows && col >= 0 && col < cols;
 }
 
-/**
- * Generate a board with bombs placed randomly, excluding the safe position.
- */
-export function generateBoard(size: number, bombs: number, safe: Position): Board {
-  const board = createEmptyBoard(size);
-  const candidates: Position[] = [];
+export type RevealOutcome = {
+  outcome: "bomb" | "revealed" | "ignored";
+  revealed: Position[];
+};
 
-  for (let row = 0; row < size; row += 1) {
-    for (let col = 0; col < size; col += 1) {
-      if (row === safe.row && col === safe.col) {
-        continue;
-      }
-      candidates.push({ row, col });
-    }
-  }
-
-  // Shuffle candidates and pick the first N for bomb placement.
-  for (let i = candidates.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
-  }
-
-  for (let i = 0; i < bombs && i < candidates.length; i += 1) {
-    const { row, col } = candidates[i];
-    board[row][col].isBomb = true;
-  }
-
-  // Compute adjacent bomb counts for non-bomb tiles.
-  for (let row = 0; row < size; row += 1) {
-    for (let col = 0; col < size; col += 1) {
-      if (board[row][col].isBomb) {
-        continue;
-      }
-      let count = 0;
-      for (const [dRow, dCol] of DIRECTIONS) {
-        const nRow = row + dRow;
-        const nCol = col + dCol;
-        if (inBounds(size, nRow, nCol) && board[nRow][nCol].isBomb) {
-          count += 1;
-        }
-      }
-      board[row][col].adjacentBombCount = count;
-    }
-  }
-
-  return board;
-}
+export type HintOutcome = {
+  action: "flag" | "reveal" | "none";
+  revealed: Position[];
+};
 
 /**
- * Toggle a flag on a cell and return the new board plus delta for flag count.
+ * GameManager encapsulates board state and operations.
+ * Public API: reset, getState, setState, getBoard, getFlagsPlaced, getHasStarted,
+ * getRows, getCols, getBombCount, toggleFlag, reveal, getHintCandidate, applyHint.
  */
-export function toggleFlag(board: Board, row: number, col: number) {
-  const next = cloneBoard(board);
-  const cell = next[row][col];
+export class GameManager {
+  private board: Board;
+  private flagsPlaced = 0;
+  private hasStarted = false;
+  private hintManager: HintManager;
 
-  if (cell.revealed) {
-    return { board: next, delta: 0 };
+  constructor(private rows: number, private cols: number, private bombCount: number) {
+    this.board = this.createEmptyBoard(rows, cols);
+    this.hintManager = new HintManager();
   }
 
-  cell.flagged = !cell.flagged;
-  return { board: next, delta: cell.flagged ? 1 : -1 };
-}
-
-/**
- * Reveal a cell and flood-fill empty neighbors.
- * Returns the updated board and the list of positions revealed.
- */
-export function revealCell(board: Board, row: number, col: number) {
-  const next = cloneBoard(board);
-  const size = next.length;
-  const start = next[row][col];
-  const revealed: Position[] = [];
-
-  if (start.revealed || start.flagged) {
-    return { board: next, revealed };
+  /**
+   * Reset the game to its initial state.
+   */
+  reset() {
+    this.board = this.createEmptyBoard(this.rows, this.cols);
+    this.flagsPlaced = 0;
+    this.hasStarted = false;
+    this.hintManager.reset();
   }
 
-  if (start.isBomb) {
-    start.revealed = true;
-    start.revealStep = 0;
-    revealed.push({ row, col });
-    return { board: next, revealed };
+  /**
+   * Snapshot current game state for persistence.
+   */
+  getState(): GameState {
+    return {
+      board: this.board,
+      flagsPlaced: this.flagsPlaced,
+      hasStarted: this.hasStarted,
+      boardRows: this.rows,
+      boardCols: this.cols,
+      bombCount: this.bombCount,
+    };
   }
 
-  if (start.adjacentBombCount > 0) {
-    start.revealed = true;
-    start.revealStep = 0;
-    revealed.push({ row, col });
-    return { board: next, revealed };
+  /**
+   * Restore game state from persistence.
+   */
+  setState(state: GameState) {
+    this.board = state.board;
+    this.flagsPlaced = state.flagsPlaced;
+    this.hasStarted = state.hasStarted;
+    this.hintManager.rebuild(this.board);
   }
 
-  // Flood-fill to reveal empty neighbors.
-  const queue: Array<Position & { dist: number }> = [{ row, col, dist: 0 }];
+  /**
+   * Read-only accessors for UI binding.
+   */
+  getBoard() {
+    return this.board;
+  }
 
-  while (queue.length) {
-    const current = queue.shift();
-    if (!current) {
-      continue;
+  getFlagsPlaced() {
+    return this.flagsPlaced;
+  }
+
+  getHasStarted() {
+    return this.hasStarted;
+  }
+
+  getRows() {
+    return this.rows;
+  }
+
+  getCols() {
+    return this.cols;
+  }
+
+  getBombCount() {
+    return this.bombCount;
+  }
+
+  /**
+   * Toggle a flag on a cell, respecting the bomb count limit.
+   */
+  toggleFlag(row: number, col: number) {
+    const cell = this.board.cells[row][col];
+    if (cell.revealed) {
+      return { delta: 0, blocked: false };
     }
-    const cell = next[current.row][current.col];
+    if (!cell.flagged && this.flagsPlaced >= this.bombCount) {
+      return { delta: 0, blocked: true };
+    }
+
+    const result = this.toggleFlagCell(this.board, row, col);
+    this.board = result.board;
+    this.flagsPlaced = Math.max(0, this.flagsPlaced + result.delta);
+    this.hintManager.updateForCell(this.board, row, col);
+    return { delta: result.delta, blocked: false };
+  }
+
+  /**
+   * Reveal a cell. Bombs return a bomb outcome without mutating the board.
+   */
+  reveal(row: number, col: number): RevealOutcome {
+    if (!this.hasStarted) {
+      this.generateFirstBoard({ row, col });
+      this.hasStarted = true;
+    }
+
+    const cell = this.board.cells[row][col];
     if (cell.revealed || cell.flagged) {
-      continue;
+      return { outcome: "ignored", revealed: [] };
     }
 
-    cell.revealed = true;
-    cell.revealStep = current.dist;
-    revealed.push({ row: current.row, col: current.col });
-
-    if (cell.adjacentBombCount !== 0) {
-      continue;
+    if (cell.isBomb) {
+      return { outcome: "bomb", revealed: [] };
     }
 
-    for (const [dRow, dCol] of DIRECTIONS) {
-      const nRow = current.row + dRow;
-      const nCol = current.col + dCol;
-      if (inBounds(size, nRow, nCol)) {
-        const neighbor = next[nRow][nCol];
-        if (!neighbor.revealed && !neighbor.flagged && !neighbor.isBomb) {
-          queue.push({ row: nRow, col: nCol, dist: current.dist + 1 });
+    const result = this.revealCellInternal(this.board, row, col);
+    this.board = result.board;
+    this.hintManager.updateFromReveal(this.board, result.revealed);
+    return { outcome: "revealed", revealed: result.revealed };
+  }
+
+  /**
+   * Get a hint candidate position or null if none exist.
+   */
+  getHintCandidate(): Position | null {
+    return this.hintManager.selectHint(this.board);
+  }
+
+  /**
+   * Apply a hint to a cell (flag bombs, reveal numbers).
+   */
+  applyHint(row: number, col: number): HintOutcome {
+    if (!this.hasStarted) {
+      return { action: "none", revealed: [] };
+    }
+
+    const cell = this.board.cells[row][col];
+    if (cell.revealed || cell.flagged) {
+      return { action: "none", revealed: [] };
+    }
+
+    if (cell.isBomb) {
+      const result = this.toggleFlag(row, col);
+      if (result.delta !== 0) {
+        return { action: "flag", revealed: [] };
+      }
+      return { action: "none", revealed: [] };
+    }
+
+    const result = this.revealCellInternal(this.board, row, col);
+    this.board = result.board;
+    this.hintManager.updateFromReveal(this.board, result.revealed);
+    return { action: "reveal", revealed: result.revealed };
+  }
+
+  /**
+   * Copy any flags placed before the first reveal onto a newly generated board.
+   */
+  private applyExistingFlags(nextBoard: Board) {
+    for (const row of this.board.cells) {
+      for (const cell of row) {
+        if (cell.flagged) {
+          nextBoard.cells[cell.row][cell.col].flagged = true;
         }
       }
     }
   }
 
-  return { board: next, revealed };
+  /**
+   * Generate a board on first reveal and ensure the clicked cell is empty.
+   */
+  private generateFirstBoard(safe: Position) {
+    let generated = this.generateBoard(this.rows, this.cols, this.bombCount, safe);
+    let attempts = 0;
+
+    while (generated.cells[safe.row][safe.col].adjacentBombCount !== 0 && attempts < 200) {
+      generated = this.generateBoard(this.rows, this.cols, this.bombCount, safe);
+      attempts += 1;
+    }
+
+    this.applyExistingFlags(generated);
+    this.board = generated;
+  }
+
+  /**
+   * Create a rows x cols board with no bombs and default cell state.
+   */
+  private createEmptyBoard(rows: number, cols: number): Board {
+    const cells = Array.from({ length: rows }, (_, row) =>
+      Array.from({ length: cols }, (_, col) => ({
+        row,
+        col,
+        isBomb: false,
+        adjacentBombCount: 0,
+        revealed: false,
+        flagged: false,
+        // Used to stagger reveal animations in a flood-fill.
+        revealStep: null,
+      }))
+    );
+
+    return { rows, cols, cells };
+  }
+
+  /**
+   * Deep-clone a board so mutations don't affect the original.
+   */
+  private cloneBoard(board: Board): Board {
+    return {
+      rows: board.rows,
+      cols: board.cols,
+      cells: board.cells.map((row) => row.map((cell) => ({ ...cell }))),
+    };
+  }
+
+  /**
+   * Generate a board with bombs placed randomly, excluding the safe position.
+   */
+  private generateBoard(rows: number, cols: number, bombs: number, safe: Position): Board {
+    const board = this.createEmptyBoard(rows, cols);
+    const candidates: Position[] = [];
+
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        if (row === safe.row && col === safe.col) {
+          continue;
+        }
+        candidates.push({ row, col });
+      }
+    }
+
+    // Shuffle candidates and pick the first N for bomb placement.
+    for (let i = candidates.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+    }
+
+    for (let i = 0; i < bombs && i < candidates.length; i += 1) {
+      const { row, col } = candidates[i];
+      board.cells[row][col].isBomb = true;
+    }
+
+    // Compute adjacent bomb counts for non-bomb tiles.
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        if (board.cells[row][col].isBomb) {
+          continue;
+        }
+        let count = 0;
+        for (const [dRow, dCol] of DIRECTIONS) {
+          const nRow = row + dRow;
+          const nCol = col + dCol;
+          if (inBounds(rows, cols, nRow, nCol) && board.cells[nRow][nCol].isBomb) {
+            count += 1;
+          }
+        }
+        board.cells[row][col].adjacentBombCount = count;
+      }
+    }
+
+    return board;
+  }
+
+  /**
+   * Toggle a flag on a cell and return the new board plus delta for flag count.
+   */
+  private toggleFlagCell(board: Board, row: number, col: number) {
+    const next = this.cloneBoard(board);
+    const cell = next.cells[row][col];
+
+    if (cell.revealed) {
+      return { board: next, delta: 0 };
+    }
+
+    cell.flagged = !cell.flagged;
+    return { board: next, delta: cell.flagged ? 1 : -1 };
+  }
+
+  /**
+   * Reveal a cell and flood-fill empty neighbors.
+   * Returns the updated board and the list of positions revealed.
+   */
+  private revealCellInternal(board: Board, row: number, col: number) {
+    const next = this.cloneBoard(board);
+    const start = next.cells[row][col];
+    const revealed: Position[] = [];
+
+    if (start.revealed || start.flagged) {
+      return { board: next, revealed };
+    }
+
+    if (start.isBomb) {
+      start.revealed = true;
+      start.revealStep = 0;
+      revealed.push({ row, col });
+      return { board: next, revealed };
+    }
+
+    if (start.adjacentBombCount > 0) {
+      start.revealed = true;
+      start.revealStep = 0;
+      revealed.push({ row, col });
+      return { board: next, revealed };
+    }
+
+    // Flood-fill to reveal empty neighbors.
+    const queue: Array<Position & { dist: number }> = [{ row, col, dist: 0 }];
+
+    while (queue.length) {
+      const current = queue.shift();
+      if (!current) {
+        continue;
+      }
+      const cell = next.cells[current.row][current.col];
+      if (cell.revealed || cell.flagged) {
+        continue;
+      }
+
+      cell.revealed = true;
+      cell.revealStep = current.dist;
+      revealed.push({ row: current.row, col: current.col });
+
+      if (cell.adjacentBombCount !== 0) {
+        continue;
+      }
+
+      for (const [dRow, dCol] of DIRECTIONS) {
+        const nRow = current.row + dRow;
+        const nCol = current.col + dCol;
+        if (inBounds(next.rows, next.cols, nRow, nCol)) {
+          const neighbor = next.cells[nRow][nCol];
+          if (!neighbor.revealed && !neighbor.flagged && !neighbor.isBomb) {
+            queue.push({ row: nRow, col: nCol, dist: current.dist + 1 });
+          }
+        }
+      }
+    }
+
+    return { board: next, revealed };
+  }
 }
