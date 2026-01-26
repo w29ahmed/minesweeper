@@ -9,6 +9,8 @@
   export let onToggleFlag: (row: number, col: number) => void;
   // Cell keys that should briefly show a bomb (penalty feedback).
   export let bombFlashKeys: string[] = [];
+  // Cell keys that should briefly pulse when a hint reveals them.
+  export let hintFlashKeys: string[] = [];
   export let longPressMs = 500;
 
   let pressTimer: ReturnType<typeof setTimeout> | null = null;
@@ -84,6 +86,7 @@
       {#each row as cell (cell.row + "-" + cell.col)}
         {@const key = cellKey(cell)}
         {@const isBombFlash = bombFlashKeys.includes(key)}
+        {@const isHintFlash = hintFlashKeys.includes(key)}
         <button
           type="button"
           style={`--reveal-delay: ${(cell.revealStep ?? 0) * REVEAL_DELAY_MS}ms;`}
@@ -91,7 +94,7 @@
             pressedCellKey === `${cell.row}-${cell.col}` && !cell.revealed
               ? "cell-hold"
               : ""
-          }`}
+          } ${isHintFlash ? "cell-hint" : ""}`}
           on:pointerdown={() => handlePointerDown(cell)}
           on:pointerup={() => handlePointerUp(cell)}
           on:pointerleave={handlePointerCancel}
@@ -140,6 +143,36 @@
 
   :global(.dark) .cell-hold .cell-cover {
     filter: brightness(0.7);
+  }
+
+  .cell-hint .cell-cover {
+    animation: hint-blink 0.3s steps(2, start) infinite;
+  }
+
+  :global(.dark) .cell-hint .cell-cover {
+    animation: hint-blink-dark 0.3s steps(2, start) infinite;
+  }
+
+  @keyframes hint-blink {
+    0%,
+    50% {
+      background-color: rgb(253 230 138 / 1);
+    }
+    51%,
+    100% {
+      background-color: rgb(254 243 199 / 1);
+    }
+  }
+
+  @keyframes hint-blink-dark {
+    0%,
+    50% {
+      background-color: rgb(100 116 139 / 1);
+    }
+    51%,
+    100% {
+      background-color: rgb(71 85 105 / 1);
+    }
   }
 
   .cell-cover {

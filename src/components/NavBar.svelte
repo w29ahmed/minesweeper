@@ -1,7 +1,12 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
   import Fa from "svelte-fa";
-  import { faClock, faFlag, faRotateRight } from "@fortawesome/free-solid-svg-icons";
+  import {
+    faClock,
+    faFlag,
+    faRotateRight,
+    faQuestion,
+  } from "@fortawesome/free-solid-svg-icons";
   import ThemeToggleSwitch from "./ThemeToggleSwitch.svelte";
 
   export let isDarkTheme: boolean;
@@ -14,6 +19,10 @@
   // Hook for future game logic to reset the board/timer.
   function handleRestart() {
     dispatch("restart");
+  }
+
+  function handleHint() {
+    dispatch("hint");
   }
 </script>
 
@@ -28,6 +37,14 @@
       on:click={handleRestart}
     >
       <Fa icon={faRotateRight} class="text-slate-800 dark:text-slate-100" />
+    </button>
+    <button
+      type="button"
+      class="h-9 w-9 inline-flex items-center justify-center rounded-md border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
+      aria-label="Show hint"
+      on:click={handleHint}
+    >
+      <Fa icon={faQuestion} class="text-slate-700 dark:text-slate-100" />
     </button>
   </div>
 

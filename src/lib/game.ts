@@ -16,7 +16,7 @@ export type Position = {
   col: number;
 };
 
-const DIRECTIONS = [
+export const DIRECTIONS = [
   [-1, -1],
   [-1, 0],
   [-1, 1],
@@ -111,21 +111,24 @@ export function revealCell(board: Board, row: number, col: number) {
   const next = cloneBoard(board);
   const size = next.length;
   const start = next[row][col];
+  const revealed: Position[] = [];
 
   if (start.revealed || start.flagged) {
-    return next;
+    return { board: next, revealed };
   }
 
   if (start.isBomb) {
     start.revealed = true;
     start.revealStep = 0;
-    return next;
+    revealed.push({ row, col });
+    return { board: next, revealed };
   }
 
   if (start.adjacentBombCount > 0) {
     start.revealed = true;
     start.revealStep = 0;
-    return next;
+    revealed.push({ row, col });
+    return { board: next, revealed };
   }
 
   // Flood-fill to reveal empty neighbors.
@@ -143,6 +146,7 @@ export function revealCell(board: Board, row: number, col: number) {
 
     cell.revealed = true;
     cell.revealStep = current.dist;
+    revealed.push({ row: current.row, col: current.col });
 
     if (cell.adjacentBombCount !== 0) {
       continue;
@@ -160,5 +164,5 @@ export function revealCell(board: Board, row: number, col: number) {
     }
   }
 
-  return next;
+  return { board: next, revealed };
 }
