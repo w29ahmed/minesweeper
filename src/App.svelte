@@ -9,8 +9,15 @@
     toggleFlag,
     type Board as GameBoard,
     type Position,
-    DIRECTIONS,
   } from "./lib/game";
+  import {
+    buildEdgeCandidates,
+    keyFor,
+    selectHintCandidate,
+    updateEdgeCandidateForCell,
+    updateEdgeCandidatesFromReveal,
+    type EdgeCandidates,
+  } from "./lib/hint";
   import { loadGameState, saveGameState } from "./stores/gameStore";
 
   let isDarkTheme: boolean =
@@ -32,7 +39,7 @@
   // Bumps to retrigger the +10 animation in the navbar.
   let penaltyAnimationKey = 0;
   // Keeps a quick lookup of "edge" candidates for hints.
-  let edgeCandidates = new Set<string>();
+  let edgeCandidates: EdgeCandidates = new Set<string>();
 
   let timerId: ReturnType<typeof setInterval> | null = null;
 
@@ -93,97 +100,6 @@
     penaltyAnimationKey += 1;
   }
 
-  function keyFor(row: number, col: number) {
-    return `${row}-${col}`;
-  }
-
-  function inBounds(row: number, col: number) {
-    return row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE;
-  }
-
-  function hasRevealedNeighbor(row: number, col: number) {
-    for (const [dRow, dCol] of DIRECTIONS) {
-      const nRow = row + dRow;
-      const nCol = col + dCol;
-      if (inBounds(nRow, nCol) && board[nRow][nCol].revealed) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  function rebuildEdgeCandidates() {
-    const next = new Set<string>();
-    for (let row = 0; row < BOARD_SIZE; row += 1) {
-      for (let col = 0; col < BOARD_SIZE; col += 1) {
-        const cell = board[row][col];
-        if (!cell.revealed) {
-          continue;
-        }
-        for (const [dRow, dCol] of DIRECTIONS) {
-          const nRow = row + dRow;
-          const nCol = col + dCol;
-          if (!inBounds(nRow, nCol)) {
-            continue;
-          }
-          const neighbor = board[nRow][nCol];
-          if (
-            !neighbor.revealed &&
-            !neighbor.flagged &&
-            (neighbor.isBomb || neighbor.adjacentBombCount > 0)
-          ) {
-            next.add(keyFor(nRow, nCol));
-          }
-        }
-      }
-    }
-    edgeCandidates = next;
-  }
-
-  function updateEdgeCandidatesFromReveal(revealed: Position[]) {
-    if (!revealed.length) {
-      return;
-    }
-    const next = new Set(edgeCandidates);
-    for (const pos of revealed) {
-      next.delete(keyFor(pos.row, pos.col));
-      for (const [dRow, dCol] of DIRECTIONS) {
-        const nRow = pos.row + dRow;
-        const nCol = pos.col + dCol;
-        if (!inBounds(nRow, nCol)) {
-          continue;
-        }
-        const neighbor = board[nRow][nCol];
-        if (
-          !neighbor.revealed &&
-          !neighbor.flagged &&
-          (neighbor.isBomb || neighbor.adjacentBombCount > 0)
-        ) {
-          next.add(keyFor(nRow, nCol));
-        }
-      }
-    }
-    edgeCandidates = next;
-  }
-
-  function updateEdgeCandidateForCell(row: number, col: number) {
-    const key = keyFor(row, col);
-    const cell = board[row][col];
-    const isCandidate =
-      !cell.revealed &&
-      !cell.flagged &&
-      (cell.isBomb || cell.adjacentBombCount > 0) &&
-      hasRevealedNeighbor(row, col);
-
-    const next = new Set(edgeCandidates);
-    if (isCandidate) {
-      next.add(key);
-    } else {
-      next.delete(key);
-    }
-    edgeCandidates = next;
-  }
-
   // Preserve any flags placed before the first reveal.
   function applyExistingFlags(nextBoard: GameBoard) {
     for (const row of board) {
@@ -228,7 +144,12 @@
 
     const result = revealCell(board, row, col);
     board = result.board;
-    updateEdgeCandidatesFromReveal(result.revealed);
+    edgeCandidates = updateEdgeCandidatesFromReveal(
+      edgeCandidates,
+      board,
+      BOARD_SIZE,
+      result.revealed
+    );
   }
 
   function handleToggleFlag(row: number, col: number) {
@@ -239,7 +160,13 @@
     const result = toggleFlag(board, row, col);
     board = result.board;
     flagsPlaced = Math.max(0, flagsPlaced + result.delta);
-    updateEdgeCandidateForCell(row, col);
+    edgeCandidates = updateEdgeCandidateForCell(
+      edgeCandidates,
+      board,
+      BOARD_SIZE,
+      row,
+      col
+    );
   }
 
   function handleHint() {
@@ -247,22 +174,12 @@
       return;
     }
 
-    const candidates = Array.from(edgeCandidates).filter((key) => {
-      const [row, col] = key.split("-").map(Number);
-      const cell = board[row][col];
-      return (
-        !cell.revealed &&
-        !cell.flagged &&
-        (cell.isBomb || cell.adjacentBombCount > 0)
-      );
-    });
-
-    if (!candidates.length) {
+    const candidate = selectHintCandidate(edgeCandidates, board);
+    if (!candidate) {
       return;
     }
-
-    const choice = candidates[Math.floor(Math.random() * candidates.length)];
-    const [row, col] = choice.split("-").map(Number);
+    const { row, col } = candidate;
+    const choice = keyFor(row, col);
 
     applyPenalty();
     hintFlashKeys = [...hintFlashKeys, choice];
@@ -282,7 +199,12 @@
 
       const result = revealCell(board, row, col);
       board = result.board;
-      updateEdgeCandidatesFromReveal(result.revealed);
+      edgeCandidates = updateEdgeCandidatesFromReveal(
+        edgeCandidates,
+        board,
+        BOARD_SIZE,
+        result.revealed
+      );
       hintFlashKeys = hintFlashKeys.filter((item) => item !== choice);
     }, 1000);
   }
@@ -299,7 +221,7 @@
       flagsPlaced = saved.flagsPlaced;
       elapsedSeconds = saved.elapsedSeconds;
       hasStarted = saved.hasStarted;
-      rebuildEdgeCandidates();
+      edgeCandidates = buildEdgeCandidates(board, BOARD_SIZE);
     }
     hasRestoredState = true;
 

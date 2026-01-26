@@ -60,7 +60,10 @@ function cloneBoard(board: Board): Board {
 /**
  * Guard for row/col bounds checks.
  */
-function inBounds(size: number, row: number, col: number) {
+/**
+ * Guard for row/col bounds checks.
+ */
+export function inBounds(size: number, row: number, col: number) {
   return row >= 0 && row < size && col >= 0 && col < size;
 }
 
