@@ -1,3 +1,8 @@
+/**
+ * Core Minesweeper game logic and data structures.
+ * Functions here are UI-agnostic and operate on plain board state.
+ */
+
 export type Cell = {
   row: number;
   col: number;
@@ -27,6 +32,9 @@ export const DIRECTIONS = [
   [1, 1],
 ];
 
+/**
+ * Create a size x size board with no bombs and default cell state.
+ */
 export function createEmptyBoard(size: number): Board {
   return Array.from({ length: size }, (_, row) =>
     Array.from({ length: size }, (_, col) => ({
@@ -42,14 +50,23 @@ export function createEmptyBoard(size: number): Board {
   );
 }
 
+/**
+ * Deep-clone a board so mutations don't affect the original.
+ */
 function cloneBoard(board: Board): Board {
   return board.map((row) => row.map((cell) => ({ ...cell })));
 }
 
+/**
+ * Guard for row/col bounds checks.
+ */
 function inBounds(size: number, row: number, col: number) {
   return row >= 0 && row < size && col >= 0 && col < size;
 }
 
+/**
+ * Generate a board with bombs placed randomly, excluding the safe position.
+ */
 export function generateBoard(size: number, bombs: number, safe: Position): Board {
   const board = createEmptyBoard(size);
   const candidates: Position[] = [];
@@ -95,6 +112,9 @@ export function generateBoard(size: number, bombs: number, safe: Position): Boar
   return board;
 }
 
+/**
+ * Toggle a flag on a cell and return the new board plus delta for flag count.
+ */
 export function toggleFlag(board: Board, row: number, col: number) {
   const next = cloneBoard(board);
   const cell = next[row][col];
@@ -107,6 +127,10 @@ export function toggleFlag(board: Board, row: number, col: number) {
   return { board: next, delta: cell.flagged ? 1 : -1 };
 }
 
+/**
+ * Reveal a cell and flood-fill empty neighbors.
+ * Returns the updated board and the list of positions revealed.
+ */
 export function revealCell(board: Board, row: number, col: number) {
   const next = cloneBoard(board);
   const size = next.length;
