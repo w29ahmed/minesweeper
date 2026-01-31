@@ -27,6 +27,7 @@
   let hintFlashKeys: string[] = [];
   // Bumps to retrigger the +10 animation in the navbar.
   let penaltyAnimationKey = 0;
+  let showRestartConfirm = false;
 
   let timerId: ReturnType<typeof setInterval> | null = null;
 
@@ -80,6 +81,22 @@
     bombFlashKeys = [];
     hintFlashKeys = [];
     penaltyAnimationKey = 0;
+  }
+
+  function handleRestartRequest() {
+    if (!game.getHasStarted()) {
+      return;
+    }
+    showRestartConfirm = true;
+  }
+
+  function confirmRestart() {
+    showRestartConfirm = false;
+    resetGame();
+  }
+
+  function cancelRestart() {
+    showRestartConfirm = false;
   }
 
   function applyPenalty() {
@@ -171,14 +188,14 @@
 </script>
 
 <main
-  class="min-h-screen flex flex-col bg-amber-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100"
+  class="relative min-h-screen flex flex-col bg-amber-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100"
 >
   <NavBar
     bind:isDarkTheme
     {timeLabel}
     {bombsLeft}
     {penaltyAnimationKey}
-    on:restart={resetGame}
+    on:restart={handleRestartRequest}
     on:hint={handleHint}
   />
   <section class="flex flex-1 min-h-0 bg-amber-100 dark:bg-slate-950">
@@ -191,4 +208,37 @@
       onToggleFlag={handleToggleFlag}
     />
   </section>
+
+  {#if showRestartConfirm}
+    <div
+      class="absolute inset-0 z-30 flex items-center justify-center bg-slate-900/50"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Restart confirmation"
+    >
+      <div
+        class="w-[min(90vw,420px)] rounded-xl bg-white p-6 text-slate-900 shadow-xl dark:bg-slate-800 dark:text-slate-100"
+      >
+        <p class="text-lg font-semibold">
+          Are you sure you want to restart the game?
+        </p>
+        <div class="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            class="rounded-md border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+            on:click={cancelRestart}
+          >
+            No
+          </button>
+          <button
+            type="button"
+            class="rounded-md bg-rose-400 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-500"
+            on:click={confirmRestart}
+          >
+            Yes
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </main>
