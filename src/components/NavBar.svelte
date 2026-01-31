@@ -29,22 +29,24 @@
 <nav
   class="w-full grid grid-cols-3 items-center px-6 py-3 border-b border-slate-200 bg-white/70 dark:border-slate-700 dark:bg-slate-800/70"
 >
-  <div class="flex items-center gap-3">
+  <div class="flex items-center gap-3 relative">
     <button
       type="button"
-      class="h-9 w-9 inline-flex items-center justify-center rounded-md border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
+      class="group relative h-9 w-9 inline-flex items-center justify-center rounded-md border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
       aria-label="Restart game"
       on:click={handleRestart}
     >
       <Fa icon={faRotateRight} class="text-slate-800 dark:text-slate-100" />
+      <span class="tooltip">Restart</span>
     </button>
     <button
       type="button"
-      class="h-9 w-9 inline-flex items-center justify-center rounded-md border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
+      class="group relative h-9 w-9 inline-flex items-center justify-center rounded-md border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
       aria-label="Show hint"
       on:click={handleHint}
     >
       <Fa icon={faQuestion} class="text-slate-700 dark:text-slate-100" />
+      <span class="tooltip">Hint</span>
     </button>
   </div>
 
@@ -88,5 +90,29 @@
       opacity: 0;
       transform: translateY(-10px);
     }
+  }
+
+  .tooltip {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%) translateY(-4px);
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.9);
+    color: #f8fafc;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms ease, transform 150ms ease;
+    white-space: nowrap;
+    z-index: 20;
+  }
+
+  .group:hover .tooltip {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
   }
 </style>
