@@ -326,7 +326,9 @@
               Perfect game!
             </p>
           {:else}
-            <p class="mt-4 text-center text-sm text-slate-600 dark:text-slate-300">
+            <p
+              class="mt-4 text-center text-sm text-slate-600 dark:text-slate-300"
+            >
               <span>Mistakes: {mistakes}</span>
               <span class="mx-2">Hints: {hintsUsed}</span>
             </p>
