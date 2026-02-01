@@ -2,11 +2,16 @@
   import { onMount } from "svelte";
   import NavBar from "./components/NavBar.svelte";
   import Board from "./components/Board.svelte";
-  import { GameManager, type Board as GameBoard, type GameState } from "./lib/game";
+  import {
+    GameManager,
+    type Board as GameBoard,
+    type GameState,
+  } from "./lib/game";
   import { loadGameState, saveGameState } from "./stores/gameStore";
 
   // Theme toggle state; defaults to dark if nothing stored yet.
-  let isDarkTheme: boolean = (localStorage.getItem("theme") ?? "dark") === "dark";
+  let isDarkTheme: boolean =
+    (localStorage.getItem("theme") ?? "dark") === "dark";
   // Elapsed timer value in seconds.
   let elapsedSeconds = 0;
   // Tunable constants for MVP; later we can swap based on difficulty.
@@ -20,6 +25,11 @@
   let flagsPlaced = game.getFlagsPlaced();
   let hasStarted = game.getHasStarted();
   let hasRestoredState = false; // Prevents saving before restore completes.
+  let hasFinished = false;
+  let showGameOverModal = false;
+  let gameOverCorrect = true;
+  let mistakes = 0;
+  let hintsUsed = 0;
   // Tracks temporary bomb reveals so we can animate without permanently revealing.
   // A key is added on bomb click and removed after the flash duration.
   let bombFlashKeys: string[] = [];
@@ -46,6 +56,8 @@
     saveGameState({
       game: game.getState(),
       elapsedSeconds,
+      mistakes,
+      hintsUsed,
     });
   }
 
@@ -53,6 +65,7 @@
     board = game.getBoard();
     flagsPlaced = game.getFlagsPlaced();
     hasStarted = game.getHasStarted();
+    checkForCompletion();
   }
 
   // Timer starts on the first reveal to mimic classic Minesweeper.
@@ -65,11 +78,15 @@
     }, 1000);
   }
 
-  function resetTimer() {
+  function stopTimer() {
     if (timerId) {
       clearInterval(timerId);
       timerId = null;
     }
+  }
+
+  function resetTimer() {
+    stopTimer();
     elapsedSeconds = 0;
   }
 
@@ -77,6 +94,11 @@
   function resetGame() {
     resetTimer();
     game.reset();
+    hasFinished = false;
+    showGameOverModal = false;
+    gameOverCorrect = true;
+    mistakes = 0;
+    hintsUsed = 0;
     syncFromGame();
     bombFlashKeys = [];
     hintFlashKeys = [];
@@ -99,12 +121,33 @@
     showRestartConfirm = false;
   }
 
+  function dismissGameOver() {
+    showGameOverModal = false;
+  }
+
+  function checkForCompletion() {
+    if (hasFinished) {
+      return;
+    }
+    const status = game.getCompletionStatus();
+    if (!status.complete) {
+      return;
+    }
+    hasFinished = true;
+    gameOverCorrect = status.correct;
+    showGameOverModal = true;
+    stopTimer();
+  }
+
   function applyPenalty() {
     elapsedSeconds += 10;
     penaltyAnimationKey += 1;
   }
 
   function handleReveal(row: number, col: number) {
+    if (hasFinished) {
+      return;
+    }
     const result = game.reveal(row, col);
 
     if (!hasStarted && game.getHasStarted()) {
@@ -112,6 +155,7 @@
     }
 
     if (result.outcome === "bomb") {
+      mistakes += 1;
       applyPenalty();
       const key = `${row}-${col}`;
       if (!bombFlashKeys.includes(key)) {
@@ -129,6 +173,9 @@
   }
 
   function handleToggleFlag(row: number, col: number) {
+    if (hasFinished) {
+      return;
+    }
     const result = game.toggleFlag(row, col);
     if (result.blocked) {
       return;
@@ -137,6 +184,9 @@
   }
 
   function handleHint() {
+    if (hasFinished) {
+      return;
+    }
     if (!game.getHasStarted()) {
       return;
     }
@@ -146,6 +196,7 @@
       return;
     }
 
+    hintsUsed += 1;
     const choice = `${candidate.row}-${candidate.col}`;
     applyPenalty();
     hintFlashKeys = [...hintFlashKeys, choice];
@@ -173,13 +224,15 @@
         game.setState(gameState);
         syncFromGame();
         elapsedSeconds = saved.elapsedSeconds;
+        mistakes = saved.mistakes ?? 0;
+        hintsUsed = saved.hintsUsed ?? 0;
       }
     }
 
     hasRestoredState = true;
 
     // Resume the timer if a game was already in progress.
-    if (game.getHasStarted()) {
+    if (game.getHasStarted() && !hasFinished) {
       startTimer();
     }
 
@@ -238,6 +291,51 @@
             Yes
           </button>
         </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if showGameOverModal}
+    <div
+      class="absolute inset-0 z-40 flex items-center justify-center bg-slate-900/60"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Game completed"
+    >
+      <div
+        class="relative w-[min(90vw,440px)] rounded-xl bg-white p-6 text-slate-900 shadow-xl dark:bg-slate-800 dark:text-slate-100"
+      >
+        <button
+          type="button"
+          class="absolute left-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+          aria-label="Close game summary"
+          on:click={dismissGameOver}
+        >
+          ×
+        </button>
+        <p class="text-lg font-semibold text-center">Game complete!</p>
+        <p class="mt-2 text-center text-sm text-slate-600 dark:text-slate-300">
+          Final time: {timeLabel}
+        </p>
+
+        {#if gameOverCorrect}
+          {#if mistakes === 0 && hintsUsed === 0}
+            <p
+              class="mt-4 text-center text-base font-semibold text-emerald-600 dark:text-emerald-400"
+            >
+              Perfect game!
+            </p>
+          {:else}
+            <p class="mt-4 text-center text-sm text-slate-600 dark:text-slate-300">
+              <span>Mistakes: {mistakes}</span>
+              <span class="mx-2">Hints: {hintsUsed}</span>
+            </p>
+          {/if}
+        {:else}
+          <p class="mt-4 text-center text-sm text-rose-600 dark:text-rose-300">
+            There is a mistake somewhere.
+          </p>
+        {/if}
       </div>
     </div>
   {/if}

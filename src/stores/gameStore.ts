@@ -3,9 +3,11 @@ import type { GameState } from "../lib/game";
 export type PersistedState = {
   game: GameState;
   elapsedSeconds: number;
+  mistakes: number;
+  hintsUsed: number;
 };
 
-// Single localStorage entry to restore the board, timer, and flags on reload.
+// Single localStorage entry to restore the board, timer, and stats on reload.
 const STORAGE_KEY = "minesweeper:state:v1";
 
 export function loadGameState(): PersistedState | null {

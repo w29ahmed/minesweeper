@@ -219,6 +219,34 @@ export class GameManager {
   }
 
   /**
+   * Check whether the board is fully covered (revealed or flagged) and correct.
+   */
+  getCompletionStatus() {
+    let complete = true;
+    let correct = true;
+
+    for (const row of this.board.cells) {
+      for (const cell of row) {
+        if (!cell.revealed && !cell.flagged) {
+          complete = false;
+        }
+
+        if (cell.isBomb) {
+          if (!cell.flagged) {
+            correct = false;
+          }
+        } else {
+          if (cell.flagged || !cell.revealed) {
+            correct = false;
+          }
+        }
+      }
+    }
+
+    return { complete, correct };
+  }
+
+  /**
    * Copy any flags placed before the first reveal onto a newly generated board.
    */
   private applyExistingFlags(nextBoard: Board) {
