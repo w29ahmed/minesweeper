@@ -114,24 +114,25 @@ export function generateSolvableBoard(
   // Print results of the search in debug mode for inspection
   if (debug) {
     const bombTotal = selectedBoard ? countBombs(selectedBoard) : 0;
-    const safeAdj =
-      selectedBoard?.cells[safe.row]?.[safe.col]?.adjacentBombCount ?? null;
-    const attemptsNote =
+    const selectionAttempt =
       selection === "solved"
         ? solvedAttempt
         : selection === "best"
           ? bestScoreAttempt
           : attempts;
+    const percentSolved =
+      selectionScore === null
+        ? null
+        : Math.round((selectionScore / (rows * cols)) * 1000) / 10;
     const payload = {
       rows,
       cols,
       bombs: bombTotal,
-      safe,
-      safeAdj,
       selection,
       score: selectionScore,
+      percentSolved,
       attempts,
-      attemptsForSelection: attemptsNote,
+      selectionAttempt,
       timeBudgetMs,
       elapsedMs,
     };
