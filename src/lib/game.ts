@@ -3,6 +3,7 @@
  * It provides a clean API for the UI and handles hint coordination internally.
  */
 import { HintManager } from "./hint";
+import { generateSolvableBoard } from "./generate_solveable_board";
 
 export type Cell = {
   row: number;
@@ -234,14 +235,9 @@ export class GameManager {
    * Generate a board on first reveal and ensure the clicked cell is empty.
    */
   private generateFirstBoard(safe: Position) {
-    let generated = this.generateBoard(this.rows, this.cols, this.bombCount, safe);
-    let attempts = 0;
-
-    while (generated.cells[safe.row][safe.col].adjacentBombCount !== 0 && attempts < 200) {
-      generated = this.generateBoard(this.rows, this.cols, this.bombCount, safe);
-      attempts += 1;
-    }
-
+    const generated = generateSolvableBoard(this.rows, this.cols, this.bombCount, safe, {
+      debug: import.meta.env.DEV,
+    });
     this.applyExistingFlags(generated);
     this.board = generated;
   }
@@ -275,54 +271,6 @@ export class GameManager {
       cols: board.cols,
       cells: board.cells.map((row) => row.map((cell) => ({ ...cell }))),
     };
-  }
-
-  /**
-   * Generate a board with bombs placed randomly, excluding the safe position.
-   */
-  private generateBoard(rows: number, cols: number, bombs: number, safe: Position): Board {
-    const board = this.createEmptyBoard(rows, cols);
-    const candidates: Position[] = [];
-
-    for (let row = 0; row < rows; row += 1) {
-      for (let col = 0; col < cols; col += 1) {
-        if (row === safe.row && col === safe.col) {
-          continue;
-        }
-        candidates.push({ row, col });
-      }
-    }
-
-    // Shuffle candidates and pick the first N for bomb placement.
-    for (let i = candidates.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
-    }
-
-    for (let i = 0; i < bombs && i < candidates.length; i += 1) {
-      const { row, col } = candidates[i];
-      board.cells[row][col].isBomb = true;
-    }
-
-    // Compute adjacent bomb counts for non-bomb tiles.
-    for (let row = 0; row < rows; row += 1) {
-      for (let col = 0; col < cols; col += 1) {
-        if (board.cells[row][col].isBomb) {
-          continue;
-        }
-        let count = 0;
-        for (const [dRow, dCol] of DIRECTIONS) {
-          const nRow = row + dRow;
-          const nCol = col + dCol;
-          if (inBounds(rows, cols, nRow, nCol) && board.cells[nRow][nCol].isBomb) {
-            count += 1;
-          }
-        }
-        board.cells[row][col].adjacentBombCount = count;
-      }
-    }
-
-    return board;
   }
 
   /**
