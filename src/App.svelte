@@ -222,7 +222,7 @@
         <p class="text-lg font-semibold">
           Are you sure you want to restart the game?
         </p>
-        <div class="mt-6 flex justify-end gap-3">
+        <div class="mt-6 flex justify-center gap-3">
           <button
             type="button"
             class="rounded-md border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
