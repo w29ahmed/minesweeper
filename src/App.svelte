@@ -15,9 +15,9 @@
   // Elapsed timer value in seconds.
   let elapsedSeconds = 0;
   // Tunable constants for MVP; later we can swap based on difficulty.
-  const BOARD_ROWS = 10;
-  const BOARD_COLS = 10;
-  const BOMB_COUNT = 25;
+  const BOARD_ROWS = 15;
+  const BOARD_COLS = 15;
+  const BOMB_COUNT = 55;
 
   const game = new GameManager(BOARD_ROWS, BOARD_COLS, BOMB_COUNT);
 

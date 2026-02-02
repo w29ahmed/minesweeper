@@ -1,37 +1,47 @@
 /**
  * Solver-based board generation for "solvable up front" boards.
  *
- * High-level goal:
- * - Create a board after the first click that can be solved (ideally) without guessing.
+ * Goal:
+ * - Create a board after the first click that is solvable without guessing.
  * - Keep the board static after generation so it feels fair and consistent.
  *
- * Approach summary:
- * 1) Generate a candidate board after the first click, excluding the safe cell.
- * 2) Enforce the safe cell is empty (adjacentBombCount == 0) so the player
- *    gets an initial clear region.
- * 3) Run a deterministic solver that only applies basic Minesweeper rules:
- *    - Let N = number on a revealed cell
- *    - Let F = flagged neighbors
- *    - Let U = unrevealed and unflagged neighbors
- *    - If N == F -> all U are safe (reveal them)
- *    - If N == F + U -> all U are bombs (flag them)
- *    Repeat until no progress can be made.
- * 4) If the solver reveals all non-bomb cells, the board is considered solvable
- *    and is accepted immediately.
- * 5) If no solvable board is found within the time budget, return the "best"
- *    candidate (highest score = reveals + flags) as a heuristic fallback.
+ * Pipeline overview:
+ * 1) Generate a candidate board after the first click. The safe cell and its
+ *    8 neighbors are bomb-free so the first click opens space.
+ * 2) Run a deterministic solver with two phases:
+ *    - Basic rules (always applied):
+ *      * If a revealed number already has all its bombs flagged, the remaining
+ *        neighbors are safe.
+ *      * If the number equals flagged + unknown neighbors, those unknowns are bombs.
+ *    - Subset rule (only if the basic rules stall):
+ *      * If one revealed number's unknown neighbors are completely contained
+ *        inside another revealed number's unknown neighbors, the "extra" cells
+ *        in the larger group can be deduced as all safe or all bombs.
+ * 3) If the solver can reveal all safe cells, accept the board immediately.
+ * 4) Otherwise keep the best-scoring candidate (reveals + flags).
  *
- * Practical safeguards:
- * - Time budget only (no attempt cap): generation runs until the budget expires,
- *   with at least one attempt guaranteed. This ensures the user doesn't feel any
- *   noticeable delay after the first click.
- * - Optional debug logging (JSON) captures: time spent, attempts, selection
- *   path (solved/best/safe/last), solver score, and safe cell adjacency.
+ * Mutation search (genetic-style improvement):
+ * - Once a best board exists, generate children by swapping bombs with safe
+ *   cells (bomb count fixed). This explores nearby layouts while keeping good structure.
+ * - If no improvement occurs for `mutationPatience` mutations, restart from a
+ *   fully random board to avoid local minima.
+ *
+ * Tuning parameters:
+ * - `mutationSwapPercent`: percentage of bombs swapped per mutation (default 5%).
+ * - `mutationPatience`: number of non-improving mutations before restart (default 100).
+ *
+ * Safeguards:
+ * - Time-budgeted search (no hard attempt cap) to keep first-click latency low.
+ * - Optional debug logging prints search outcomes and percent solved.
  */
 import { DIRECTIONS, inBounds, type Board, type Cell, type Position } from "./game";
 
 export type GenerateOptions = {
   timeBudgetMs?: number;
+  // Percentage of bombs to swap when mutating a parent board (0-100).
+  mutationSwapPercent?: number;
+  // Number of non-improving mutations to allow before restarting from scratch.
+  mutationPatience?: number;
   // When true, emit a JSON log describing the generation outcome.
   debug?: boolean;
 };
@@ -53,9 +63,13 @@ export function generateSolvableBoard(
 ): Board {
   // 250ms is enough for the user to not feel any delay on the first reveal
   const timeBudgetMs = options.timeBudgetMs ?? 250;
+  const mutationSwapPercent = options.mutationSwapPercent ?? 3;
+  const mutationPatience = options.mutationPatience ?? 100;
   const debug = options.debug ?? false;
   const start = Date.now();
   let attempts = 0;
+  let noImproveCount = 0;
+  let parentBoard: Board | null = null;
 
   let bestBoard: Board | null = null;
   let bestScore = -1;
@@ -70,7 +84,19 @@ export function generateSolvableBoard(
   while (attempts === 0 || Date.now() - start < timeBudgetMs) {
     attempts += 1;
 
-    const board = generateRandomBoard(rows, cols, bombs, safe);
+    if (parentBoard && noImproveCount >= mutationPatience) {
+      parentBoard = null;
+      noImproveCount = 0;
+    }
+
+    const normalizedPercent = Math.max(0, mutationSwapPercent);
+    const swapCount = Math.max(1, Math.ceil((bombs * normalizedPercent) / 100));
+    const board =
+      parentBoard
+        ? mutateBoard(parentBoard, safe, swapCount) ??
+          generateRandomBoard(rows, cols, bombs, safe)
+        : generateRandomBoard(rows, cols, bombs, safe);
+
     lastBoard = board;
 
     // Require the first click to be empty so the player gets a guaranteed region.
@@ -92,6 +118,10 @@ export function generateSolvableBoard(
       bestScore = result.score;
       bestScoreAttempt = attempts;
       bestBoard = board;
+      parentBoard = board;
+      noImproveCount = 0;
+    } else {
+      noImproveCount += 1;
     }
   }
 
@@ -183,6 +213,76 @@ function generateRandomBoard(
 }
 
 /**
+ * Returns true if a cell is inside the safe zone (first click + 8 neighbors).
+ */
+function isInSafeZone(row: number, col: number, safe: Position) {
+  return Math.abs(row - safe.row) <= 1 && Math.abs(col - safe.col) <= 1;
+}
+
+/**
+ * Copy only the bomb layout from a parent board into a fresh board.
+ */
+function cloneBombLayout(parent: Board): Board {
+  const board = createEmptyBoard(parent.rows, parent.cols);
+  for (let row = 0; row < parent.rows; row += 1) {
+    for (let col = 0; col < parent.cols; col += 1) {
+      if (parent.cells[row][col].isBomb) {
+        board.cells[row][col].isBomb = true;
+      }
+    }
+  }
+  return board;
+}
+
+/**
+ * Create a mutated child board by swapping bombs with safe cells.
+ */
+function mutateBoard(parent: Board, safe: Position, swapCount: number): Board | null {
+  if (swapCount <= 0) {
+    return null;
+  }
+
+  const board = cloneBombLayout(parent);
+  const bombPositions: Position[] = [];
+  const safePositions: Position[] = [];
+
+  for (let row = 0; row < board.rows; row += 1) {
+    for (let col = 0; col < board.cols; col += 1) {
+      if (isInSafeZone(row, col, safe)) {
+        continue;
+      }
+      if (board.cells[row][col].isBomb) {
+        bombPositions.push({ row, col });
+      } else {
+        safePositions.push({ row, col });
+      }
+    }
+  }
+
+  if (bombPositions.length < swapCount || safePositions.length < swapCount) {
+    return null;
+  }
+
+  for (let i = 0; i < swapCount; i += 1) {
+    const bombIndex = Math.floor(Math.random() * bombPositions.length);
+    const bombPos = bombPositions[bombIndex];
+    bombPositions[bombIndex] = bombPositions[bombPositions.length - 1];
+    bombPositions.pop();
+
+    const safeIndex = Math.floor(Math.random() * safePositions.length);
+    const safePos = safePositions[safeIndex];
+    safePositions[safeIndex] = safePositions[safePositions.length - 1];
+    safePositions.pop();
+
+    board.cells[bombPos.row][bombPos.col].isBomb = false;
+    board.cells[safePos.row][safePos.col].isBomb = true;
+  }
+
+  computeAdjacency(board);
+  return board;
+}
+
+/**
  * Compute adjacent bomb counts for all non-bomb cells.
  */
 function computeAdjacency(board: Board) {
@@ -208,6 +308,7 @@ function computeAdjacency(board: Board) {
 /**
  * Run a deterministic solver and return whether the board is solvable
  * and how many forced moves were possible (score = reveals + flags).
+ * Includes the subset rule to model stronger human deductions.
  */
 function runSolver(board: Board, safe: Position): SolverResult {
   // Working state for the solver: we track what it has revealed/flagged so the
@@ -233,6 +334,7 @@ function runSolver(board: Board, safe: Position): SolverResult {
     progress = false;
     const toReveal: Position[] = [];
     const toFlag: Position[] = [];
+    const constraints: Constraint[] = [];
 
     // Scan revealed numbers and collect forced actions.
     for (let row = 0; row < board.rows; row += 1) {
@@ -262,6 +364,12 @@ function runSolver(board: Board, safe: Position): SolverResult {
           continue;
         }
 
+        // Track constraints for subset-based deductions.
+        const remaining = cell.adjacentBombCount - flags;
+        if (remaining >= 0) {
+          constraints.push({ unknowns, remaining });
+        }
+
         // Apply the two classic Minesweeper deduction rules.
         // If the number is satisfied, remaining neighbors are safe.
         if (cell.adjacentBombCount === flags) {
@@ -270,6 +378,16 @@ function runSolver(board: Board, safe: Position): SolverResult {
         } else if (cell.adjacentBombCount === flags + unknowns.length) {
           toFlag.push(...unknowns);
         }
+      }
+    }
+
+    // If basic rules stalled, apply subset rule on frontier constraints
+    // (frontier = revealed number cells that still touch unknown neighbors).
+    if (!toReveal.length && !toFlag.length && constraints.length > 1) {
+      const subset = applySubsetRule(constraints);
+      if (subset.safe.length || subset.bombs.length) {
+        toReveal.push(...subset.safe);
+        toFlag.push(...subset.bombs);
       }
     }
 
@@ -296,6 +414,92 @@ function runSolver(board: Board, safe: Position): SolverResult {
   return {
     solved: revealedCount >= totalSafe,
     score: revealedCount + flaggedCount,
+  };
+}
+
+type Constraint = {
+  unknowns: Position[];
+  remaining: number;
+};
+
+/**
+ * Subset rule:
+ * If constraint A's unknowns are a strict subset of constraint B's unknowns,
+ * the difference set can be deduced as all safe or all bombs.
+ */
+function applySubsetRule(constraints: Constraint[]) {
+  const safe = new Map<string, Position>();
+  const bombs = new Map<string, Position>();
+
+  // Convert unknown neighbor lists into sets of string keys for fast inclusion checks.
+  const toKey = (pos: Position) => `${pos.row}-${pos.col}`;
+  const sets = constraints.map((constraint) => ({
+    remaining: constraint.remaining,
+    positions: constraint.unknowns,
+    keys: new Set(constraint.unknowns.map(toKey)),
+  }));
+
+  // Compare every pair to find cases where one unknown set is fully contained in another.
+  for (let i = 0; i < sets.length; i += 1) {
+    const a = sets[i];
+    if (!a.keys.size) {
+      continue;
+    }
+    for (let j = 0; j < sets.length; j += 1) {
+      if (i === j) {
+        continue;
+      }
+      const b = sets[j];
+      if (a.keys.size >= b.keys.size) {
+        continue;
+      }
+
+      // If every unknown in A also appears in B, then A is a strict subset of B.
+      let isSubset = true;
+      for (const key of a.keys) {
+        if (!b.keys.has(key)) {
+          isSubset = false;
+          break;
+        }
+      }
+      if (!isSubset) {
+        continue;
+      }
+
+      // The cells that are in B but not in A are the ones we can deduce about.
+      const diff: Position[] = [];
+      for (const pos of b.positions) {
+        if (!a.keys.has(toKey(pos))) {
+          diff.push(pos);
+        }
+      }
+
+      if (!diff.length) {
+        continue;
+      }
+
+      // If B needs the same number of bombs as A, the extra cells are safe.
+      // If B needs exactly "diff length" more bombs than A, the extra cells are all bombs.
+      const remainingDiff = b.remaining - a.remaining;
+      if (remainingDiff < 0) {
+        continue;
+      }
+
+      if (remainingDiff === 0) {
+        for (const pos of diff) {
+          safe.set(toKey(pos), pos);
+        }
+      } else if (remainingDiff === diff.length) {
+        for (const pos of diff) {
+          bombs.set(toKey(pos), pos);
+        }
+      }
+    }
+  }
+
+  return {
+    safe: Array.from(safe.values()),
+    bombs: Array.from(bombs.values()),
   };
 }
 
