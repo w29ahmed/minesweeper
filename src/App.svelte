@@ -62,7 +62,7 @@
   }
 
   // Persist game state so users can resume where they left off.
-  $: if (hasRestoredState && game) {
+  $: if (hasRestoredState && game && board) {
     saveGameState({
       game: game.getState(),
       elapsedSeconds,
