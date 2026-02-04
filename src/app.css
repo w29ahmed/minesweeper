@@ -19,3 +19,8 @@ path,
 g {
   transition: none;
 }
+
+button,
+[role="button"] {
+  cursor: pointer;
+}
