@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
+  import { fade, scale } from "svelte/transition";
   import NavBar from "./components/NavBar.svelte";
   import Board from "./components/Board.svelte";
   import {
@@ -316,7 +317,10 @@
     />
   </div>
   {#if board}
-    <section class="flex flex-1 min-h-0 bg-amber-100 dark:bg-slate-950">
+    <section
+      class="flex flex-1 min-h-0 bg-amber-100 dark:bg-slate-950"
+      in:scale={{ duration: 200, start: 0.98 }}
+    >
       <Board
         {board}
         longPressMs={350}
@@ -330,35 +334,37 @@
 
   {#if showDifficultyModal}
     <div
-      class="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/60"
+      class="fixed left-0 top-0 z-50 flex h-[100svh] w-[100svw] items-center justify-center bg-slate-900/60"
       role="dialog"
       aria-modal="true"
       aria-label="Select difficulty"
+      transition:fade={{ duration: 150 }}
     >
       <div
         class="w-[min(90vw,420px)] rounded-xl bg-white p-6 text-slate-900 shadow-xl dark:bg-slate-800 dark:text-slate-100"
+        transition:scale={{ duration: 180, start: 0.96 }}
       >
         <p class="text-lg font-semibold text-center">
           Please select a difficulty
         </p>
-        <div class="mt-6 grid gap-3">
+        <div class="mt-6 flex flex-col items-center gap-3">
           <button
             type="button"
-            class="w-full rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-600 dark:bg-emerald-400 dark:text-emerald-950 dark:hover:bg-emerald-300"
+            class="w-40 rounded-md bg-emerald-400 px-4 py-2 text-sm font-semibold text-emerald-950 shadow hover:bg-emerald-500 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
             on:click={() => handleDifficultySelect("easy")}
           >
             Easy
           </button>
           <button
             type="button"
-            class="w-full rounded-md bg-amber-300 px-4 py-2 text-sm font-semibold text-slate-900 shadow hover:bg-amber-400 dark:bg-amber-400 dark:text-slate-900 dark:hover:bg-amber-300"
+            class="w-40 rounded-md bg-amber-300 px-4 py-2 text-sm font-semibold text-amber-950 shadow hover:bg-amber-400 dark:bg-amber-400 dark:text-amber-950 dark:hover:bg-amber-300"
             on:click={() => handleDifficultySelect("medium")}
           >
             Medium
           </button>
           <button
             type="button"
-            class="w-full rounded-md bg-rose-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-rose-600 dark:bg-rose-400 dark:text-rose-950 dark:hover:bg-rose-300"
+            class="w-40 rounded-md bg-rose-400 px-4 py-2 text-sm font-semibold text-rose-950 shadow hover:bg-rose-500 dark:bg-rose-500 dark:text-rose-950 dark:hover:bg-rose-400"
             on:click={() => handleDifficultySelect("hard")}
           >
             Hard
@@ -370,13 +376,15 @@
 
   {#if showRestartConfirm}
     <div
-      class="absolute inset-0 z-30 flex items-center justify-center bg-slate-900/50"
+      class="fixed left-0 top-0 z-30 flex h-[100svh] w-[100svw] items-center justify-center bg-slate-900/50"
       role="dialog"
       aria-modal="true"
       aria-label="Restart confirmation"
+      transition:fade={{ duration: 150 }}
     >
       <div
         class="w-[min(90vw,420px)] rounded-xl bg-white p-6 text-slate-900 shadow-xl dark:bg-slate-800 dark:text-slate-100"
+        transition:scale={{ duration: 180, start: 0.96 }}
       >
         <p class="text-lg font-semibold">
           Are you sure you want to restart the game?
@@ -403,13 +411,15 @@
 
   {#if showGameOverModal}
     <div
-      class="absolute inset-0 z-40 flex items-center justify-center bg-slate-900/60"
+      class="fixed left-0 top-0 z-40 flex h-[100svh] w-[100svw] items-center justify-center bg-slate-900/60"
       role="dialog"
       aria-modal="true"
       aria-label="Game completed"
+      transition:fade={{ duration: 150 }}
     >
       <div
         class="relative w-[min(90vw,440px)] rounded-xl bg-white p-6 text-slate-900 shadow-xl dark:bg-slate-800 dark:text-slate-100"
+        transition:scale={{ duration: 180, start: 0.96 }}
       >
         <button
           type="button"
