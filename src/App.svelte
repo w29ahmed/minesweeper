@@ -51,8 +51,20 @@
 
   let timerId: ReturnType<typeof setInterval> | null = null;
 
+  function formatElapsed(secondsTotal: number) {
+    const hours = Math.floor(secondsTotal / 3600);
+    const minutes = Math.floor((secondsTotal % 3600) / 60);
+    const seconds = secondsTotal % 60;
+
+    if (hours > 0) {
+      return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    }
+
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  }
+
   // Keep a human-readable timer label for the navbar.
-  $: timeLabel = new Date(elapsedSeconds * 1000).toISOString().slice(14, 19);
+  $: timeLabel = formatElapsed(elapsedSeconds);
   $: bombsLeft = Math.max(0, (bombCount ?? 0) - flagsPlaced);
 
   // Persist theme choice and toggle the root class for Tailwind dark variants.
@@ -125,7 +137,11 @@
     boardRows = gameState.boardRows;
     boardCols = gameState.boardCols;
     bombCount = gameState.bombCount;
-    game = new GameManager(gameState.boardRows, gameState.boardCols, gameState.bombCount);
+    game = new GameManager(
+      gameState.boardRows,
+      gameState.boardCols,
+      gameState.bombCount
+    );
     game.setState(gameState);
     syncFromGame();
     elapsedSeconds = savedSeconds;

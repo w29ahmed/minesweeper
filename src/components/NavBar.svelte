@@ -10,7 +10,7 @@
   import ThemeToggleSwitch from "./ThemeToggleSwitch.svelte";
 
   export let isDarkTheme: boolean;
-  export let timeLabel: string = "00:00";
+  export let timeLabel: string = "0:00";
   export let bombsLeft: number = 10;
   export let penaltyAnimationKey: number = 0;
 
@@ -50,22 +50,31 @@
     </button>
   </div>
 
-  <div class="flex items-center justify-center gap-1 text-xs uppercase tracking-wide sm:gap-2 sm:text-sm">
+  <div
+    class="flex items-center justify-center gap-1 text-xs uppercase tracking-wide sm:gap-2 sm:text-sm leading-none"
+  >
     <Fa icon={faClock} class="text-slate-500 dark:text-slate-300" />
-    <span class="hidden text-slate-500 dark:text-slate-300 sm:inline">Time</span>
-    <span class="font-mono text-slate-800 dark:text-slate-100">{timeLabel}</span>
-    {#if penaltyAnimationKey}
-      {#key penaltyAnimationKey}
-        <!-- Forces the +10 to re-mount so the animation replays each penalty. -->
-        <span class="time-penalty">+10</span>
-      {/key}
-    {/if}
+    <span
+      class="relative inline-flex items-center font-mono text-slate-800 dark:text-slate-100"
+    >
+      {timeLabel}
+      {#if penaltyAnimationKey}
+        {#key penaltyAnimationKey}
+          <!-- Forces the +10 to re-mount so the animation replays each penalty. -->
+          <span class="time-penalty">+10</span>
+        {/key}
+      {/if}
+    </span>
   </div>
 
   <div class="flex items-center justify-end gap-3 sm:gap-4">
-    <div class="flex items-center gap-1 text-xs uppercase tracking-wide sm:gap-2 sm:text-sm">
+    <div
+      class="flex items-center gap-1 text-xs uppercase tracking-wide sm:gap-2 sm:text-sm"
+    >
       <Fa icon={faFlag} class="text-rose-500" />
-      <span class="font-mono text-slate-800 dark:text-slate-100">{bombsLeft}</span>
+      <span class="font-mono text-slate-800 dark:text-slate-100"
+        >{bombsLeft}</span
+      >
     </div>
     <ThemeToggleSwitch bind:isDarkTheme />
   </div>
@@ -73,22 +82,27 @@
 
 <style>
   .time-penalty {
+    position: absolute;
+    left: calc(100% + 6px);
+    top: 50%;
     color: #ef4444;
     font-weight: 700;
     animation: penalty-pop 1s ease-out forwards;
+    pointer-events: none;
   }
 
   @keyframes penalty-pop {
     0% {
       opacity: 0;
-      transform: translateY(6px);
+      transform: translateY(calc(-50% + 6px));
     }
     20% {
       opacity: 1;
+      transform: translateY(-50%);
     }
     100% {
       opacity: 0;
-      transform: translateY(-10px);
+      transform: translateY(calc(-50% - 10px));
     }
   }
 
@@ -106,7 +120,9 @@
     letter-spacing: 0.02em;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 150ms ease, transform 150ms ease;
+    transition:
+      opacity 150ms ease,
+      transform 150ms ease;
     white-space: nowrap;
     z-index: 20;
   }
