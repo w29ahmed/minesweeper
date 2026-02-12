@@ -43,6 +43,8 @@
   let bombFlashKeys: string[] = [];
   // Tracks temporary hint highlights so the suggested square pulses.
   let hintFlashKeys: string[] = [];
+  // Tracks incorrect flag attempts so we can animate the flag feedback.
+  let wrongFlagKeys: string[] = [];
   // Bumps to retrigger the +10 animation in the navbar.
   let penaltyAnimationKey = 0;
   let showRestartConfirm = false;
@@ -117,6 +119,7 @@
     hintsUsed = 0;
     bombFlashKeys = [];
     hintFlashKeys = [];
+    wrongFlagKeys = [];
     penaltyAnimationKey = 0;
     syncFromGame();
 
@@ -193,6 +196,7 @@
     hintsUsed = 0;
     bombFlashKeys = [];
     hintFlashKeys = [];
+    wrongFlagKeys = [];
     penaltyAnimationKey = 0;
     showDifficultyModal = true;
   }
@@ -270,6 +274,26 @@
       return;
     }
     const activeGame = game;
+    if (!activeGame.getHasStarted()) {
+      return;
+    }
+    const currentBoard = activeGame.getBoard();
+    const cell = currentBoard.cells[row][col];
+
+    // Handle if incorrect flag is placed
+    if (!cell.flagged && !cell.isBomb) {
+      mistakes += 1;
+      applyPenalty();
+      const key = `${row}-${col}`;
+      if (!wrongFlagKeys.includes(key)) {
+        wrongFlagKeys = [...wrongFlagKeys, key];
+      }
+      setTimeout(() => {
+        wrongFlagKeys = wrongFlagKeys.filter((item) => item !== key);
+      }, 700);
+      return;
+    }
+
     const result = activeGame.toggleFlag(row, col);
     if (result.blocked) {
       return;
@@ -342,6 +366,7 @@
         longPressMs={350}
         {bombFlashKeys}
         {hintFlashKeys}
+        {wrongFlagKeys}
         onReveal={handleReveal}
         onToggleFlag={handleToggleFlag}
       />

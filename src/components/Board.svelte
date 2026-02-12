@@ -10,6 +10,8 @@
   export let bombFlashKeys: string[] = [];
   // Cell keys that should briefly pulse when a hint reveals them.
   export let hintFlashKeys: string[] = [];
+  // Cell keys that should show an incorrect-flag animation.
+  export let wrongFlagKeys: string[] = [];
   export let longPressMs = 500;
 
   let pressTimer: ReturnType<typeof setTimeout> | null = null;
@@ -86,6 +88,7 @@
         {@const key = cellKey(cell)}
         {@const isBombFlash = bombFlashKeys.includes(key)}
         {@const isHintFlash = hintFlashKeys.includes(key)}
+        {@const isWrongFlag = wrongFlagKeys.includes(key)}
         <button
           type="button"
           style={`--reveal-delay: ${(cell.revealStep ?? 0) * REVEAL_DELAY_MS}ms;`}
@@ -117,7 +120,11 @@
           </span>
 
           <span
-            class={`cell-flag ${cell.flagged && !cell.revealed ? "cell-flag--shown" : ""}`}
+            class={`cell-flag ${
+              (cell.flagged && !cell.revealed) || isWrongFlag
+                ? "cell-flag--shown"
+                : ""
+            } ${isWrongFlag ? "cell-flag--wrong" : ""}`}
           >
             <Fa icon={faFlag} class="text-rose-500" />
           </span>
@@ -236,6 +243,30 @@
   .cell-flag--shown {
     opacity: 1;
     transform: scale(1);
+  }
+
+  .cell-flag--wrong {
+    animation: flag-wrong 0.7s ease-out forwards;
+  }
+
+  @keyframes flag-wrong {
+    0% {
+      opacity: 1;
+      transform: translateX(0) rotate(0deg) scale(1);
+    }
+    25% {
+      transform: translateX(-2px) rotate(-6deg) scale(1);
+    }
+    50% {
+      transform: translateX(2px) rotate(6deg) scale(1);
+    }
+    75% {
+      transform: translateX(-2px) rotate(-4deg) scale(0.95);
+    }
+    100% {
+      opacity: 0;
+      transform: translateX(0) rotate(0deg) scale(0.7);
+    }
   }
 
   .bomb-shake {
