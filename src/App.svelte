@@ -240,6 +240,19 @@
     penaltyAnimationKey += 1;
   }
 
+  // Use the Web Vibration API via `navigator` (browser global).
+  // In practice this only vibrates on Android devices; iOS Safari/Chrome do not
+  // support the API and desktop browsers have no vibration hardware.
+  // "reveal" covers normal reveals and correct flag placements (light tap).
+  // "mistake" covers penalties (bomb reveal or wrong flag), so it uses a stronger pattern.
+  function triggerHaptic(type: "reveal" | "mistake") {
+    if (typeof navigator === "undefined" || !("vibrate" in navigator)) {
+      return;
+    }
+    // Vibration patterns are in ms. Arrays create a buzz-pause-buzz effect.
+    navigator.vibrate(type === "mistake" ? [30, 40, 30] : 12);
+  }
+
   function handleReveal(row: number, col: number) {
     if (hasFinished || !game) {
       return;
@@ -254,6 +267,7 @@
     if (result.outcome === "bomb") {
       mistakes += 1;
       applyPenalty();
+      triggerHaptic("mistake");
       const key = `${row}-${col}`;
       if (!bombFlashKeys.includes(key)) {
         bombFlashKeys = [...bombFlashKeys, key];
@@ -265,6 +279,7 @@
     }
 
     if (result.outcome === "revealed") {
+      triggerHaptic("reveal");
       syncFromGame();
     }
   }
@@ -284,6 +299,7 @@
     if (!cell.flagged && !cell.isBomb) {
       mistakes += 1;
       applyPenalty();
+      triggerHaptic("mistake");
       const key = `${row}-${col}`;
       if (!wrongFlagKeys.includes(key)) {
         wrongFlagKeys = [...wrongFlagKeys, key];
@@ -298,6 +314,7 @@
     if (result.blocked) {
       return;
     }
+    triggerHaptic("reveal");
     syncFromGame();
   }
 
@@ -323,6 +340,9 @@
     setTimeout(() => {
       const outcome = activeGame.applyHint(candidate.row, candidate.col);
       if (outcome.action !== "none") {
+        if (outcome.action === "reveal") {
+          triggerHaptic("reveal");
+        }
         syncFromGame();
       }
       hintFlashKeys = hintFlashKeys.filter((item) => item !== choice);
