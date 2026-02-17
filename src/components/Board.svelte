@@ -80,7 +80,7 @@
 
 <div class="flex-1 min-h-0 w-full">
   <div
-    class="board-grid grid h-full w-full bg-amber-200/60 shadow-inner dark:bg-slate-800/70"
+    class="board-grid grid h-full w-full bg-slate-100/60 shadow-inner dark:bg-slate-800/70"
     style={`grid-template-columns: repeat(${board.cols}, minmax(0, 1fr)); grid-template-rows: repeat(${board.rows}, minmax(0, 1fr));`}
   >
     {#each board.cells as row}
@@ -92,7 +92,7 @@
         <button
           type="button"
           style={`--reveal-delay: ${(cell.revealStep ?? 0) * REVEAL_DELAY_MS}ms;`}
-          class={`cell group relative flex h-full w-full items-center justify-center text-sm font-semibold border border-amber-200 bg-amber-50 dark:border-slate-500 dark:bg-slate-700 ${
+          class={`cell group relative flex h-full w-full items-center justify-center text-sm font-semibold border border-slate-300 bg-white dark:border-slate-500 dark:bg-slate-700 ${
             pressedCellKey === `${cell.row}-${cell.col}` && !cell.revealed
               ? "cell-hold"
               : ""
@@ -110,7 +110,7 @@
           >
             {#if cell.isBomb}
               <span class={isBombFlash ? "bomb-shake" : ""}>
-                <Fa icon={faBomb} class="text-slate-700 dark:text-rose-300" />
+                <Fa icon={faBomb} class="text-rose-500 dark:text-rose-300" />
               </span>
             {:else if cell.adjacentBombCount > 0}
               <span class={numberClass(cell.adjacentBombCount)}
@@ -173,11 +173,11 @@
   @keyframes hint-blink {
     0%,
     50% {
-      background-color: rgb(253 230 138 / 1);
+      background-color: rgb(203 213 225 / 1);
     }
     51%,
     100% {
-      background-color: rgb(254 243 199 / 1);
+      background-color: rgb(226 232 240 / 1);
     }
   }
 
@@ -196,7 +196,7 @@
     position: absolute;
     inset: 0;
     z-index: 10;
-    background-color: rgb(254 243 199 / 1);
+    background-color: rgb(226 232 240 / 1);
     transform: scale(1);
     transform-origin: center;
     transition:
@@ -210,7 +210,7 @@
   }
 
   .cell:hover .cell-cover {
-    background-color: rgb(253 230 138 / 1);
+    background-color: rgb(203 213 225 / 1);
   }
 
   :global(.dark) .cell:hover .cell-cover {

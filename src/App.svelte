@@ -364,7 +364,7 @@
 </script>
 
 <main
-  class="relative min-h-screen flex flex-col bg-amber-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100"
+  class="relative min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100"
 >
   <div bind:this={navContainer}>
     <NavBar
@@ -378,7 +378,7 @@
   </div>
   {#if board}
     <section
-      class="flex flex-1 min-h-0 bg-amber-100 dark:bg-slate-950"
+      class="flex flex-1 min-h-0 bg-slate-100 dark:bg-slate-950"
       in:scale={{ duration: 200, start: 0.98 }}
     >
       <Board
