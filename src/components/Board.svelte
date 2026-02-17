@@ -80,7 +80,7 @@
 
 <div class="flex-1 min-h-0 w-full">
   <div
-    class="grid h-full w-full bg-amber-200/60 shadow-inner dark:bg-slate-800/70"
+    class="board-grid grid h-full w-full bg-amber-200/60 shadow-inner dark:bg-slate-800/70"
     style={`grid-template-columns: repeat(${board.cols}, minmax(0, 1fr)); grid-template-rows: repeat(${board.rows}, minmax(0, 1fr));`}
   >
     {#each board.cells as row}
@@ -141,6 +141,17 @@
 <style>
   .cell {
     --reveal-delay: 0ms;
+    /* Prevent iOS double-tap zoom and long-press selection/callout. */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .board-grid {
+    /* Avoid browser zoom gestures while tapping the grid. */
+    touch-action: manipulation;
   }
 
   .cell-hold .cell-cover {
