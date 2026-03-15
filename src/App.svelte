@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { fade, scale } from "svelte/transition";
+  import { Fa } from "svelte-fa";
+  import { faHandPointer, faMousePointer } from "@fortawesome/free-solid-svg-icons";
   import NavBar from "./components/NavBar.svelte";
   import Board from "./components/Board.svelte";
   import {
@@ -50,6 +52,12 @@
   let showRestartConfirm = false;
   let navContainer: HTMLDivElement | null = null;
   let showDifficultyModal = true;
+  // Onboarding tip only appears for first-time users (or after a long timeout).
+  let showOnboardingTip = false;
+
+  const ONBOARDING_TIP_KEY = "minesweeper_onboarding_seen_at";
+  // Show again after ~7 days to help returning users who might have forgotten.
+  const ONBOARDING_TIP_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 
   let timerId: ReturnType<typeof setInterval> | null = null;
 
@@ -351,15 +359,44 @@
 
   onMount(() => {
     document.documentElement.classList.toggle("dark", isDarkTheme);
+    const lastSeen = Number(localStorage.getItem(ONBOARDING_TIP_KEY));
+    const shouldShowTip =
+      !Number.isFinite(lastSeen) ||
+      Date.now() - lastSeen > ONBOARDING_TIP_TTL_MS;
     const saved = loadGameState();
     if (saved) {
       showDifficultyModal = false;
       startGameFromSaved(saved);
+      showOnboardingTip = shouldShowTip;
     } else {
       showDifficultyModal = true;
+      showOnboardingTip = shouldShowTip;
     }
 
-    return resetTimer;
+    const dismissTip = () => {
+      if (!showOnboardingTip || !board) {
+        return;
+      }
+      showOnboardingTip = false;
+      localStorage.setItem(ONBOARDING_TIP_KEY, String(Date.now()));
+    };
+
+    // Dismiss the onboarding tip when the user interacts anywhere.
+    const handlePointerDown = () => dismissTip();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        dismissTip();
+      }
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      resetTimer();
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   });
 </script>
 
@@ -391,6 +428,27 @@
         onToggleFlag={handleToggleFlag}
       />
     </section>
+  {/if}
+
+  {#if board && showOnboardingTip}
+    <div
+      class="pointer-events-none fixed left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2"
+      transition:fade={{ duration: 150 }}
+    >
+      <div
+        class="flex flex-col items-center gap-2 rounded-xl bg-white/25 px-4 py-3 text-xs text-slate-700 shadow-md dark:bg-slate-800/25 dark:text-slate-100 sm:flex-row sm:gap-4 sm:text-sm"
+      >
+        <div class="flex items-center gap-2 text-center">
+          <Fa icon={faMousePointer} class="text-slate-500 dark:text-slate-300" />
+          <span class="font-medium">Click to reveal</span>
+        </div>
+        <span class="hidden h-5 w-px bg-slate-300/80 dark:bg-slate-600/80 sm:block" />
+        <div class="flex items-center gap-2 text-center">
+          <Fa icon={faHandPointer} class="text-slate-500 dark:text-slate-300" />
+          <span class="font-medium">Hold to flag</span>
+        </div>
+      </div>
+    </div>
   {/if}
 
   {#if showDifficultyModal}
