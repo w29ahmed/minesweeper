@@ -1,6 +1,6 @@
 # Minesweeper
 
-A cozy, modern take on a classic. Built to feel fast and satisfying on both desktop and mobile, with a board generator that tries really hard to give you a solvable game. The funny part: I first learned about Minesweeper during a job interview when I was asked to implement its backend logic. I passed, got addicted, and eventually decided to make a clean version of my own. Try it [here](https://w29ahmed.github.io/minesweeper)!
+A cozy, modern take on a classic. Built to feel fast and satisfying on both desktop and mobile, with a board generator that leans toward solvable games. I first learned how to play Minesweeper during a job interview when I was asked to implement its backend logic. I passed, got addicted, and eventually decided to make a clean version of my own. Try it [here](https://w29ahmed.github.io/minesweeper)!
 
 <div align="center">
   <img src="./assets/demo.gif" alt="demo" width="100%">
@@ -8,13 +8,18 @@ A cozy, modern take on a classic. Built to feel fast and satisfying on both desk
 
 ### What Makes It Special
 
-- **Solvable board generation**: A time‑budgeted solver + mutation search that aims for boards you can reason through (not just guess).
+- **Solvable board generation**: A time‑budgeted solver + mutation search that aims for boards you can reason through without guesses.
 - **Responsive UI**: The board size adapts to your screen and difficulty choice.
-- **Delightful feedback**: Subtle animations, penalties for mistakes, and helpful hints.
+- **Delightful feedback**: Subtle animations and penalties for mistakes.
+- **Hints on demand**: A quick hint system when you’re stuck.
+- **Resume where you left off**: Game state is saved so returning to the tab picks up right where you stopped.
 
-### Solvable Board Algorithm
+### Technical Deep Dives
 
-Curious how the board is generated? See **[solvable_board_algorithm.md](./solvable_board_algorithm.md)** for a detailed explanation.
+Curious how things work under the hood?
+
+- **[solvable_board_algorithm.md](./docs/solvable_board_algorithm.md)**: How boards are generated with a time‑budgeted solver + mutation search.
+- **[hint_manager.md](./docs/hint_manager.md)**: How hints are picked quickly without rescanning the board.
 
 ### Built With
 

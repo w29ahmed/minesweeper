@@ -2,7 +2,7 @@
 
 This document explains how Minesweeper boards are generated so they are **as solvable as possible without guessing**, while still running fast enough for a smooth UX.
 
-The implementation lives in `src/lib/generate_solveable_board.ts` and is invoked when a new game starts (after the first click, so the initial cell is guaranteed safe).
+The implementation lives in [`src/lib/generate_solveable_board.ts`](../src/lib/generate_solveable_board.ts) and is invoked when a new game starts (after the first click, so the initial cell is guaranteed safe).
 
 ---
 
