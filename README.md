@@ -3,7 +3,7 @@
 A cozy, modern take on a classic. Built to feel fast and satisfying on both desktop and mobile, with a board generator that tries really hard to give you a solvable game. The funny part: I first learned about Minesweeper during a job interview when I was asked to implement its backend logic. I passed, got addicted, and eventually decided to make a clean version of my own. Try it [here](https://w29ahmed.github.io/minesweeper)!
 
 <div align="center">
-  <img src="./assets/demo.gif" alt="demo">
+  <img src="./assets/demo.gif" alt="demo" width="100%">
 </div>
 
 ### What Makes It Special
